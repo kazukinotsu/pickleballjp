@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Picklejp Community Map / 世界の日系ピックルボールコミュニティ</title>
+<!-- Supabase JavaScript client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Config: set SUPABASE_URL and SUPABASE_ANON_KEY in config.js -->
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg:#0b1020;
+    --bg-2:#121935;
+    --panel:#0f1530;
+    --panel-2:#161d3f;
+    --text:#e8ecf5;
+    --muted:#9aa3b8;
+    --line:#263059;
+    --accent:#d7ff3a;     /* pickleball yellow-green */
+    --accent-2:#19d39a;   /* teal */
+    --accent-3:#8aa0ff;   /* lavender */
+    --danger:#ff6a6a;
+    --shadow:0 10px 40px rgba(0,0,0,.45);
+    --r:16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(215,255,58,.08), transparent 60%),
+      radial-gradient(800px 500px at -10% 20%, rgba(25,211,154,.10), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP",
+                 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--accent-2); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 120px; }
+
+  /* Header */
+  header.hero {
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding: 18px 22px; border-radius: var(--r);
+    background: linear-gradient(135deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+    border: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+    flex-wrap: wrap;
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .ball {
+    width:34px; height:34px; border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, #f7ff6a, #c4e600 60%, #9ec400 100%);
+    position: relative; flex:0 0 auto;
+    box-shadow: 0 4px 14px rgba(215,255,58,.35), inset -4px -6px 10px rgba(0,0,0,.18);
+  }
+  .ball::before {
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background:
+      radial-gradient(2px 2px at 30% 25%, rgba(0,0,0,.35) 100%, transparent 101%),
+      radial-gradient(2px 2px at 55% 40%, rgba(0,0,0,.35) 100%, transparent 101%),
+      radial-gradient(2px 2px at 70% 25%, rgba(0,0,0,.35) 100%, transparent 101%),
+      radial-gradient(2px 2px at 40% 60%, rgba(0,0,0,.35) 100%, transparent 101%),
+      radial-gradient(2px 2px at 65% 70%, rgba(0,0,0,.35) 100%, transparent 101%),
+      radial-gradient(2px 2px at 25% 75%, rgba(0,0,0,.35) 100%, transparent 101%),
+      radial-gradient(2px 2px at 80% 55%, rgba(0,0,0,.35) 100%, transparent 101%);
+  }
+  .brand { font-weight: 800; letter-spacing:.3px; font-size: 18px; }
+  .brand small { display:block; color: var(--muted); font-weight:500; font-size:12px; }
+
+  .tabs {
+    display:inline-flex; background: var(--panel); border:1px solid var(--line);
+    padding: 4px; border-radius: 999px;
+  }
+  .tab {
+    padding: 8px 14px; border-radius:999px; cursor:pointer; font-weight:600; font-size:13px;
+    color: var(--muted); user-select:none;
+  }
+  .tab.active { background: var(--accent); color:#0a0f22; }
+
+  .langsw {
+    display:inline-flex; background: var(--panel); border:1px solid var(--line);
+    padding: 4px; border-radius: 999px;
+  }
+  .langsw button {
+    border:0; background:transparent; color:var(--muted); font-weight:700;
+    padding: 6px 10px; border-radius: 999px; cursor:pointer; font-size:12px;
+  }
+  .langsw button.on { background: var(--accent-2); color:#052018; }
+
+  /* Hero / Stats */
+  .lead {
+    margin-top: 22px;
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px;
+  }
+  @media (max-width: 860px){ .lead { grid-template-columns: 1fr; } }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+    border: 1px solid var(--line); border-radius: var(--r); padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  .card h1 { font-size: 30px; line-height:1.2; margin: 0 0 8px; letter-spacing:.2px;}
+  .card .sub { color: var(--muted); margin-bottom: 14px; }
+  .pill {
+    display:inline-block; background: rgba(215,255,58,.1); color: var(--accent);
+    border:1px solid rgba(215,255,58,.35); padding:4px 10px; border-radius: 999px;
+    font-size:12px; font-weight:700; letter-spacing:.4px;
+  }
+
+  .stats { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat {
+    background: var(--panel); border:1px solid var(--line);
+    border-radius: 12px; padding: 14px; text-align:center;
+  }
+  .stat .num { font-size: 22px; font-weight: 800; color: var(--accent); }
+  .stat .lbl { font-size: 11px; color: var(--muted); letter-spacing:.6px; text-transform:uppercase; }
+
+  /* Form */
+  .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 740px){ .form-grid { grid-template-columns: 1fr; } }
+  .full { grid-column: 1 / -1; }
+  label {
+    display:block; font-size: 12.5px; font-weight: 700; margin-bottom: 6px; color: #cfd5e6;
+    letter-spacing:.2px;
+  }
+  label .opt { font-weight:500; color: var(--muted); margin-left:4px; }
+  input[type=text], input[type=email], input[type=url], input[type=search],
+  select, textarea {
+    width:100%; padding: 12px 14px; border-radius: 12px;
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    font-size: 14px; outline:none; transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px rgba(25,211,154,.2);
+  }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip {
+    padding: 8px 12px; border-radius: 999px; border:1px solid var(--line);
+    background: var(--panel-2); color:var(--text); cursor:pointer; font-size: 13px; user-select:none;
+  }
+  .chip.on { background: var(--accent); color:#0a0f22; border-color: transparent; font-weight:700; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .btn {
+    display:inline-flex; align-items:center; justify-content:center; gap: 8px;
+    padding: 12px 18px; border-radius: 12px; border:0; cursor:pointer;
+    font-weight:800; font-size: 14px; letter-spacing:.3px;
+    background: var(--accent); color:#0a0f22;
+    box-shadow: 0 10px 30px rgba(215,255,58,.25);
+    transition: transform .06s ease;
+    font-family: inherit;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.secondary {
+    background: transparent; color: var(--text); border:1px solid var(--line);
+    box-shadow:none;
+  }
+  .btn.ghost { background: transparent; color: var(--muted); box-shadow:none; }
+
+  /* Autocomplete */
+  .ac-wrap { position: relative; }
+  .ac-suggest {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+    background: #0d1330; border: 1px solid var(--line); border-radius: 12px;
+    max-height: 300px; overflow-y: auto;
+    box-shadow: var(--shadow);
+  }
+  .ac-suggest[hidden] { display: none; }
+  .ac-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .ac-item:last-child { border-bottom: 0; }
+  .ac-item:hover, .ac-item.active { background: rgba(255,255,255,.04); }
+  .ac-item .t { font-size: 13.5px; color: var(--text); font-weight: 600; }
+  .ac-item .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .ac-status { padding: 10px 14px; font-size: 12px; color: var(--muted); }
+  .ac-status.err { color: #ffb4b4; }
+
+  .venue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .venue-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 10px 6px 12px; border-radius: 999px;
+    background: rgba(25,211,154,.15); border: 1px solid rgba(25,211,154,.4);
+    color: var(--text); font-size: 12.5px; max-width: 100%;
+  }
+  .venue-chip .x {
+    cursor: pointer; opacity: 0.7; padding: 0 4px; border-radius: 50%;
+    font-weight: 900; line-height: 1;
+  }
+  .venue-chip .x:hover { opacity: 1; background: rgba(255,255,255,.1); }
+
+  /* Filters / List */
+  .filters {
+    display:flex; flex-wrap:wrap; gap: 10px; align-items:center; margin: 14px 0 18px;
+  }
+  .filters .sep { flex:1; }
+  .grid {
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap:14px;
+  }
+  .member {
+    border: 1px solid var(--line); border-radius: var(--r); padding: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+    transition: transform .12s ease, border-color .12s ease;
+    position: relative;
+  }
+  .member:hover { transform: translateY(-2px); border-color: #3a467f; }
+  .m-head {
+    display:flex; align-items:center; gap:10px; margin-bottom: 8px;
+  }
+  .avatar {
+    width:38px; height:38px; border-radius:50%; display:grid; place-items:center;
+    font-weight:800; color:#0a0f22;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    flex:0 0 auto;
+  }
+  .m-name { font-weight: 800; font-size: 15px; }
+  .m-loc { color: var(--muted); font-size: 12px; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin-top: 6px; }
+  .tag {
+    font-size: 11px; padding: 4px 8px; border-radius: 999px;
+    background: rgba(138,160,255,.12); color:#b8c3ff; border:1px solid rgba(138,160,255,.3);
+  }
+  .tag.yellow { background: rgba(215,255,58,.08); color:#e7ff8e; border-color: rgba(215,255,58,.3); }
+  .tag.teal { background: rgba(25,211,154,.12); color:#7df0ce; border-color: rgba(25,211,154,.35);}
+  .tag.pink { background: rgba(255,106,180,.12); color:#ffb5db; border-color: rgba(255,106,180,.35);}
+  .m-section { margin-top: 10px; }
+  .m-section .t { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing:.6px; margin-bottom:2px;}
+  .m-section .v { font-size: 13.5px; }
+  .m-section.notes .v {
+    font-size: 12.5px; color: var(--muted); padding: 8px 10px;
+    background: rgba(255,255,255,.02); border-left: 2px solid var(--line);
+    border-radius: 0 6px 6px 0;
+  }
+  .venue-list { display: flex; flex-direction: column; gap: 4px; }
+  .venue-list .v-item { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .venue-list .v-item::before {
+    content: "📍"; font-size: 10px; opacity: 0.8;
+  }
+  .empty {
+    text-align:center; color: var(--muted); padding: 40px; border:1px dashed var(--line); border-radius: var(--r);
+  }
+
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: 30px; background: #0d1330; color: var(--text);
+    border:1px solid var(--line); padding: 12px 18px; border-radius: 12px;
+    box-shadow: var(--shadow); opacity: 0; transition: opacity .2s, transform .2s;
+    pointer-events:none; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+  .section-title {
+    display:flex; align-items:center; gap:10px; margin: 26px 0 12px;
+  }
+  .section-title h2 { margin:0; font-size:18px; letter-spacing:.2px;}
+  .section-title .dot { width:8px; height:8px; border-radius:50%; background:var(--accent);}
+
+  footer { text-align:center; color: var(--muted); margin-top: 40px; font-size: 12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Demo-mode banner (shown when Supabase is not configured) -->
+  <div id="demoBanner" style="display:none; margin-bottom:14px; padding:10px 14px; border-radius:12px;
+    background: rgba(255,170,0,.12); border:1px solid rgba(255,170,0,.4); color:#ffd38a; font-size:13px;">
+    <span data-ja="⚠️ デモモード: config.js にSupabase認証情報が設定されていないため、データはこの端末のブラウザのみに保存されます。"
+          data-en="⚠️ Demo mode: config.js is not set up with Supabase credentials. Data is stored only in this browser.">
+      ⚠️ デモモード: config.js にSupabase認証情報が設定されていないため、データはこの端末のブラウザのみに保存されます。
+    </span>
+  </div>
+
+  <!-- Header -->
+  <header class="hero">
+    <div class="logo">
+      <div class="ball" aria-hidden="true"></div>
+      <div class="brand">
+        Picklejp Community Map
+        <small data-ja="世界の日系ピックルボール・コミュニティ・データベース"
+               data-en="Japanese-speaking pickleball communities — worldwide">世界の日系ピックルボール・コミュニティ・データベース</small>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <div class="tabs">
+        <div class="tab active" data-tab="visit"
+             data-ja="訪問地で探す" data-en="Visit">訪問地で探す</div>
+        <div class="tab" data-tab="browse"
+             data-ja="メンバー一覧" data-en="Browse">メンバー一覧</div>
+        <div class="tab" data-tab="join"
+             data-ja="登録する" data-en="Join">登録する</div>
+      </div>
+      <div class="langsw" role="tablist" aria-label="Language">
+        <button class="on" data-lang="ja">JA</button>
+        <button data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="lead">
+    <div class="card">
+      <span class="pill">PICKLEJP · BETA</span>
+      <h1 data-ja="行き先を入れるだけ。世界中の日系ピックルボール仲間が見つかる。"
+          data-en="Enter a destination — connect with Japanese-speaking pickleball communities worldwide.">
+        行き先を入れるだけ。世界中の日系ピックルボール仲間が見つかる。
+      </h1>
+      <p class="sub"
+         data-ja="日本国内はもちろん、海外の日系・日本語コミュニティも対象。旅行先や出張先を入力すると、近くの仲間・プレー場所が近い順に表示されます。登録すれば、あなたの街を訪れる誰かの助けになれます。"
+         data-en="Across Japan and Japanese-speaking / nikkei communities abroad. Enter where you're heading to see nearby members and courts — sorted by distance. Register to help others find you in your city.">
+        日本国内はもちろん、海外の日系・日本語コミュニティも対象。旅行先や出張先を入力すると、近くの仲間・プレー場所が近い順に表示されます。登録すれば、あなたの街を訪れる誰かの助けになれます。
+      </p>
+      <p class="sub" style="font-size:13px; padding:10px 12px; background: rgba(138,160,255,.08); border:1px solid rgba(138,160,255,.25); border-radius:10px; margin-top:-4px;"
+         data-ja='💡 日本国内のコート・練習会は <a href="https://www.tennisbear.net/pickleball" target="_blank" rel="noopener">tennisbear.net/pickleball</a> でも探せます。このマップは、それを補完する「人と人のつながり」に特化しています。'
+         data-en='💡 For courts &amp; open play sessions in Japan, see also <a href="https://www.tennisbear.net/pickleball" target="_blank" rel="noopener">tennisbear.net/pickleball</a>. This map is complementary — focused on people-to-people connections worldwide.'>
+        💡 日本国内のコート・練習会は <a href="https://www.tennisbear.net/pickleball" target="_blank" rel="noopener">tennisbear.net/pickleball</a> でも探せます。このマップは、それを補完する「人と人のつながり」に特化しています。
+      </p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="ctaVisit"
+                data-ja="訪問地で探す"
+                data-en="Find by destination">訪問地で探す</button>
+        <button class="btn secondary" id="ctaJoin"
+                data-ja="30秒で登録する"
+                data-en="Join in 30 seconds">30秒で登録する</button>
+        <button class="btn ghost" id="ctaBrowse"
+                data-ja="メンバー一覧"
+                data-en="All members">メンバー一覧</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stats">
+        <div class="stat">
+          <div class="num" id="statMembers">0</div>
+          <div class="lbl" data-ja="メンバー" data-en="Members">メンバー</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="statCountries">0</div>
+          <div class="lbl" data-ja="国・地域" data-en="Countries">国・地域</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="statCourts">0</div>
+          <div class="lbl" data-ja="プレー会場" data-en="Venues">プレー会場</div>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:14px;"
+         data-ja="※ このデモはブラウザに保存されます。場所検索はOpenStreetMap (Nominatim) を利用しています。"
+         data-en="Demo data is saved in your browser. Place search uses OpenStreetMap (Nominatim).">
+        ※ このデモはブラウザに保存されます。場所検索はOpenStreetMap (Nominatim) を利用しています。
+      </p>
+    </div>
+  </section>
+
+  <!-- Visit View -->
+  <section id="view-visit">
+    <div class="section-title"><span class="dot"></span>
+      <h2 data-ja="訪問地から近いコミュニティを探す" data-en="Find communities near a destination">訪問地から近いコミュニティを探す</h2>
+    </div>
+
+    <div class="card">
+      <div class="form-grid">
+        <div class="full">
+          <label data-ja="行き先（都市名・エリア名でOK / 世界中対応）"
+                 data-en="Destination (city, area — any country)">行き先（都市名・エリア名でOK / 世界中対応）</label>
+          <div class="ac-wrap">
+            <input type="text" id="visitInput" autocomplete="off"
+              data-ph-ja="例）京都 / 新宿 / San Francisco / Honolulu / Singapore / São Paulo"
+              data-ph-en="e.g. Kyoto / Shinjuku / San Francisco / Honolulu / Singapore / São Paulo" />
+            <div class="ac-suggest" id="visitAC" hidden></div>
+          </div>
+          <div class="hint"
+            data-ja="入力して候補から選ぶと、その地点を中心に近い順で表示されます。"
+            data-en="Type and pick from suggestions to center the search on that location.">
+            入力して候補から選ぶと、その地点を中心に近い順で表示されます。
+          </div>
+        </div>
+        <div class="full" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn secondary" id="btnGeoloc"
+              data-ja="現在地を使う" data-en="Use current location">現在地を使う</button>
+            <button type="button" class="btn ghost" id="btnVisitClear"
+              data-ja="クリア" data-en="Clear">クリア</button>
+          </div>
+          <div>
+            <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color: var(--muted); margin:0;">
+              <span data-ja="表示距離" data-en="Range">表示距離</span>
+              <select id="visitRange" style="width:auto; padding:6px 10px;">
+                <option value="50">50 km</option>
+                <option value="100" selected>100 km</option>
+                <option value="300">300 km</option>
+                <option value="1000">1,000 km</option>
+                <option value="99999" data-ja="すべて" data-en="All">すべて</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="visitResults" style="margin-top:16px;"></div>
+  </section>
+
+  <!-- Browse View -->
+  <section id="view-browse" style="display:none;">
+    <div class="section-title"><span class="dot"></span>
+      <h2 data-ja="コミュニティ・メンバー" data-en="Community members">コミュニティ・メンバー</h2>
+    </div>
+
+    <div class="filters card" style="padding:14px;">
+      <input type="text" id="q" style="max-width:320px;"
+        data-ph-ja="名前・地域・会場名で検索…"
+        data-ph-en="Search by name, area, venue…"
+        placeholder="名前・地域・会場名で検索…" />
+      <select id="fCountry" style="max-width:200px;">
+        <option value="" data-ja="すべての国" data-en="All countries">すべての国</option>
+      </select>
+      <select id="fLevel" style="max-width:180px;">
+        <option value="" data-ja="レベル：すべて" data-en="Level: all">レベル：すべて</option>
+        <option value="beginner" data-ja="初心者 (〜DUPR 3.0)" data-en="Beginner (DUPR <3.0)">初心者 (〜DUPR 3.0)</option>
+        <option value="intermediate" data-ja="中級 (DUPR 3.0-4.0)" data-en="Intermediate (DUPR 3.0-4.0)">中級 (DUPR 3.0-4.0)</option>
+        <option value="advanced" data-ja="上級 (DUPR 4.0+)" data-en="Advanced (DUPR 4.0+)">上級 (DUPR 4.0+)</option>
+      </select>
+      <div class="sep"></div>
+      <button class="btn ghost" id="exportCsv"
+        data-ja="CSVで書き出し" data-en="Export CSV">CSVで書き出し</button>
+    </div>
+
+    <div id="list" class="grid" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- Join Form -->
+  <section id="view-join" style="display:none;">
+    <div class="section-title"><span class="dot"></span>
+      <h2 data-ja="コミュニティに登録" data-en="Join the community">コミュニティに登録</h2>
+    </div>
+    <form id="joinForm" class="card" autocomplete="off">
+      <div class="form-grid">
+        <div>
+          <label data-ja="お名前 / ニックネーム" data-en="Name / Nickname">お名前 / ニックネーム</label>
+          <input type="text" name="name" required maxlength="40"
+            data-ph-ja="例）Kazuki / かずき" data-ph-en="e.g. Kazuki" />
+        </div>
+        <div>
+          <label data-ja="プレーレベル" data-en="Level">プレーレベル</label>
+          <select name="level" required>
+            <option value="" data-ja="選択してください" data-en="Select…">選択してください</option>
+            <option value="beginner" data-ja="初心者 / Beginner (〜DUPR 3.0)" data-en="Beginner (DUPR <3.0)">初心者 / Beginner (〜DUPR 3.0)</option>
+            <option value="intermediate" data-ja="中級 / Intermediate (DUPR 3.0–4.0)" data-en="Intermediate (DUPR 3.0–4.0)">中級 / Intermediate (DUPR 3.0–4.0)</option>
+            <option value="advanced" data-ja="上級 / Advanced (DUPR 4.0+)" data-en="Advanced (DUPR 4.0+)">上級 / Advanced (DUPR 4.0+)</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label data-ja="居住地（世界どこでもOK）" data-en="Location (any country)">居住地（世界どこでもOK）</label>
+          <div class="ac-wrap">
+            <input type="text" id="locInput" autocomplete="off"
+              data-ph-ja="例）東京 渋谷 / San Francisco / Honolulu / Singapore ..."
+              data-ph-en="e.g. Shibuya, Tokyo / San Francisco / Honolulu / Singapore ..." />
+            <div class="ac-suggest" id="locAC" hidden></div>
+          </div>
+          <div class="hint"
+            data-ja="入力して候補から選んでください。候補に無い場合はそのまま入力できますが、「訪問地で探す」では表示されません。"
+            data-en="Start typing and pick a result. You can also type freely, but free-text locations won't appear in distance-based search.">
+            入力して候補から選んでください。候補に無い場合はそのまま入力できますが、「訪問地で探す」では表示されません。
+          </div>
+        </div>
+
+        <div class="full">
+          <label data-ja="よくプレーしている場所（複数追加可・地図から選択）"
+                 data-en="Where you usually play (add multiple — pick from map)">よくプレーしている場所（複数追加可・地図から選択）</label>
+          <div class="ac-wrap">
+            <input type="text" id="venueInput" autocomplete="off"
+              data-ph-ja="例）東京体育館 / 駒沢オリンピック公園 / Golden Gate Park ..."
+              data-ph-en="e.g. Tokyo Metropolitan Gym / Golden Gate Park / Ala Moana ..." />
+            <div class="ac-suggest" id="venueAC" hidden></div>
+          </div>
+          <div class="venue-chips" id="venueChips"></div>
+          <div class="hint"
+            data-ja="施設名・公園名・コート名などを入力して候補から選ぶと、下にチップで追加されます。"
+            data-en="Search for a venue and pick from suggestions — it'll appear as a chip below.">
+            施設名・公園名・コート名などを入力して候補から選ぶと、下にチップで追加されます。
+          </div>
+        </div>
+
+        <div>
+          <label data-ja="プレーする曜日" data-en="Play days">プレーする曜日</label>
+          <div class="chips" id="daysChips">
+            <div class="chip" data-val="mon">Mon / 月</div>
+            <div class="chip" data-val="tue">Tue / 火</div>
+            <div class="chip" data-val="wed">Wed / 水</div>
+            <div class="chip" data-val="thu">Thu / 木</div>
+            <div class="chip" data-val="fri">Fri / 金</div>
+            <div class="chip" data-val="sat">Sat / 土</div>
+            <div class="chip" data-val="sun">Sun / 日</div>
+          </div>
+        </div>
+        <div>
+          <label data-ja="よくプレーする時間帯" data-en="Preferred time">よくプレーする時間帯</label>
+          <div class="chips" id="timeChips">
+            <div class="chip" data-val="morning">Morning / 朝</div>
+            <div class="chip" data-val="day">Day / 日中</div>
+            <div class="chip" data-val="evening">Evening / 夕方</div>
+            <div class="chip" data-val="night">Night / 夜</div>
+          </div>
+        </div>
+
+        <div>
+          <label>
+            <span data-ja="連絡先（メール）" data-en="Email">連絡先（メール）</span>
+            <span class="opt" data-ja="（任意）" data-en="(optional)">（任意）</span>
+          </label>
+          <input type="email" name="email" placeholder="you@example.com" />
+        </div>
+        <div>
+          <label>
+            <span data-ja="SNS / メッセンジャー" data-en="SNS / Messenger">SNS / メッセンジャー</span>
+            <span class="opt" data-ja="（任意）" data-en="(optional)">（任意）</span>
+          </label>
+          <input type="text" name="sns"
+            data-ph-ja="例）IG: @kazuki / LINE ID: kazuki01"
+            data-ph-en="e.g. IG: @kazuki / LINE ID: kazuki01" />
+        </div>
+
+        <div class="full">
+          <label>
+            <span data-ja="ひとこと" data-en="Short bio">ひとこと</span>
+            <span class="opt" data-ja="（任意・40字以内）" data-en="(optional, max 80 chars)">（任意・40字以内）</span>
+          </label>
+          <input type="text" name="bio" maxlength="80"
+            data-ph-ja="例）ダブルス歓迎！初心者大歓迎です🎾"
+            data-ph-en="e.g. Doubles welcome! Beginners very welcome" />
+        </div>
+
+        <div class="full">
+          <label>
+            <span data-ja="備考 / 参加方法のヒント" data-en="Notes / How to join (optional)">備考 / 参加方法のヒント</span>
+            <span class="opt" data-ja="（任意・コミュニティに参加する方法があれば書いてください）"
+                              data-en="(optional — link, LINE group, walk-in info, etc.)">（任意・コミュニティに参加する方法があれば書いてください）</span>
+          </label>
+          <textarea name="notes"
+            data-ph-ja="例）毎週土曜9時〜直接来場OK / Web https://... から申込み / LINEグループに「かずき紹介で」と一言"
+            data-ph-en="e.g. Walk-in every Saturday 9am / Register at https://... / LINE group 'intro by Kazuki'"></textarea>
+          <div class="hint"
+            data-ja="連絡先の交換はハードルが高いこともあるので、公開情報（Webサイト・オープンチャット・定例会の曜日）を優先して書くのがおすすめです。"
+            data-en="Direct contact can feel intrusive — prefer public info (website, open chats, regular meetup times) when possible.">
+            連絡先の交換はハードルが高いこともあるので、公開情報（Webサイト・オープンチャット・定例会の曜日）を優先して書くのがおすすめです。
+          </div>
+        </div>
+
+        <div class="full">
+          <p style="font-size:11.5px; color: var(--muted); margin: 0 0 4px; line-height:1.55;"
+             data-ja="※ ご登録情報は本マップでの公開のほか、ピックルボールの発展・普及のために活用される場合があります。掲載停止のご依頼はいつでも対応します。"
+             data-en="Submitted info appears on this map and may also be used to support the growth of pickleball. You can request removal anytime.">
+            ※ ご登録情報は本マップでの公開のほか、ピックルボールの発展・普及のために活用される場合があります。掲載停止のご依頼はいつでも対応します。
+          </p>
+        </div>
+        <div class="full" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+          <button type="button" class="btn secondary" id="btnSample"
+            data-ja="サンプルを埋める" data-en="Fill with sample">サンプルを埋める</button>
+          <button type="submit" class="btn"
+            data-ja="コミュニティに登録する" data-en="Register to community">コミュニティに登録する</button>
+        </div>
+      </div>
+    </form>
+
+    <p class="hint" style="margin-top:14px;"
+       data-ja="登録すると「メンバー一覧」と「訪問地で探す」に表示されます。連絡先は公開範囲に応じて任意入力です。"
+       data-en="Your entry will appear on the member list and in destination search. Contact fields are optional.">
+      登録すると「メンバー一覧」と「訪問地で探す」に表示されます。連絡先は公開範囲に応じて任意入力です。
+    </p>
+  </section>
+
+  <footer>
+    Picklejp Community Map · Built for <a href="https://www.facebook.com/groups/picklejp" target="_blank" rel="noopener">facebook.com/groups/picklejp</a>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================== Sample data (v2 shape) =================== */
+const SAMPLE = [
+  {
+    name:"Miyu",
+    location:"Fujisawa, Kanagawa, Japan", lat:35.3391, lng:139.489, country:"Japan",
+    level:"advanced",
+    venues:[
+      {name:"湘南海浜公園", full:"湘南海浜公園, Fujisawa, Kanagawa, Japan", lat:35.3186, lng:139.4755},
+      {name:"Mizuno Sports Plaza 茅ヶ崎", full:"Mizuno Sports Plaza Chigasaki, Kanagawa, Japan", lat:35.3333, lng:139.4053}
+    ],
+    days:["sat","sun"], times:["morning","day"],
+    email:"miyu@example.com", sns:"IG: @miyu.pickle",
+    bio:"湘南でトーナメント出てます。練習仲間募集！",
+    notes:"Webサイト https://shonan-pickle.jp/ から月会費で登録。ドロップインも可（1,000円）。"
+  },
+  {
+    name:"Taro",
+    location:"Osaka, Japan", lat:34.6937, lng:135.5023, country:"Japan",
+    level:"beginner",
+    venues:[
+      {name:"大阪プール", full:"大阪プール, Osaka, Japan", lat:34.695, lng:135.500},
+      {name:"服部緑地", full:"服部緑地, Toyonaka, Osaka, Japan", lat:34.7845, lng:135.4827}
+    ],
+    days:["tue","thu","sat"], times:["evening"],
+    email:"", sns:"FB: Taro M.",
+    bio:"はじめて半年。楽しく打ち合いしたいです🎾",
+    notes:"Facebookグループ『Osaka Pickleball』で参加表明。初回レッスンあり（500円）。"
+  },
+  {
+    name:"Sarah",
+    location:"Kyoto, Japan", lat:35.0116, lng:135.7681, country:"Japan",
+    level:"intermediate",
+    venues:[
+      {name:"Kyoto City Gym", full:"Kyoto City Gymnasium, Kyoto, Japan", lat:35.0116, lng:135.7681}
+    ],
+    days:["mon","wed","fri"], times:["evening","night"],
+    email:"", sns:"IG: @sarah.play",
+    bio:"Moved from SF. DUPR ~3.6. Looking for rec + comp play.",
+    notes:"DM me on IG, or join LINE group 'Kansai Picklers' — say hi in English or Japanese!"
+  },
+  {
+    name:"Ken",
+    location:"Fukuoka, Japan", lat:33.5902, lng:130.4017, country:"Japan",
+    level:"intermediate",
+    venues:[
+      {name:"シーホークコート", full:"Hilton Fukuoka Sea Hawk, Fukuoka, Japan", lat:33.5873, lng:130.3577},
+      {name:"舞鶴公園テニスコート", full:"舞鶴公園, Fukuoka, Japan", lat:33.5886, lng:130.3828}
+    ],
+    days:["sat","sun"], times:["morning"],
+    email:"", sns:"IG: @fukuoka_pickle",
+    bio:"九州勢、増やしたい！",
+    notes:"Instagram @fukuoka_pickle にDM。毎週土日朝、予約制。"
+  },
+  {
+    name:"Aya",
+    location:"Sapporo, Hokkaido, Japan", lat:43.0642, lng:141.3469, country:"Japan",
+    level:"beginner",
+    venues:[
+      {name:"北海きたえーる", full:"北海きたえーる, Sapporo, Japan", lat:43.0644, lng:141.3647}
+    ],
+    days:["sun"], times:["day"],
+    email:"", sns:"IG: @aya.sapporo",
+    bio:"冬場はインドア中心。",
+    notes:"個別連絡（IGのDM）でOK。初心者会を月2回開催中。"
+  },
+  {
+    name:"Ryu",
+    location:"Naha, Okinawa, Japan", lat:26.2124, lng:127.6809, country:"Japan",
+    level:"advanced",
+    venues:[
+      {name:"奥武山運動公園", full:"奥武山運動公園, Naha, Okinawa, Japan", lat:26.2004, lng:127.6779},
+      {name:"宜野湾海浜公園", full:"宜野湾海浜公園, Ginowan, Okinawa, Japan", lat:26.2897, lng:127.7383}
+    ],
+    days:["wed","fri","sat","sun"], times:["morning","evening"],
+    email:"hello@okinawa-pickle.com", sns:"IG: @okinawa_pickle",
+    bio:"Pickleball in Okinawa! Tourists welcome.",
+    notes:"Website https://okinawa-pickle.com からメンバー登録。旅行者ドロップイン歓迎。"
+  },
+  {
+    name:"Yuki",
+    location:"Honolulu, Hawaii, USA", lat:21.3099, lng:-157.8581, country:"United States",
+    level:"intermediate",
+    venues:[
+      {name:"Ala Moana Beach Park Courts", full:"Ala Moana Beach Park, Honolulu, HI, USA", lat:21.2906, lng:-157.8486},
+      {name:"Central Oahu Regional Park", full:"Central Oahu Regional Park, Waipahu, HI, USA", lat:21.4040, lng:-158.0079}
+    ],
+    days:["tue","thu","sat","sun"], times:["morning"],
+    email:"", sns:"IG: @yuki.hnl.pickle",
+    bio:"ハワイ在住15年。出張・旅行中の日本の方歓迎！",
+    notes:"LINEオープンチャット『Hawaii 日本語Pickle』で参加表明。朝6:30〜、日本語OK。"
+  },
+  {
+    name:"Shin",
+    location:"San Francisco, California, USA", lat:37.7749, lng:-122.4194, country:"United States",
+    level:"advanced",
+    venues:[
+      {name:"Presidio Wall Courts", full:"Presidio Wall Playground, San Francisco, CA, USA", lat:37.7881, lng:-122.4489},
+      {name:"Memorial Park (Cupertino)", full:"Memorial Park, Cupertino, CA, USA", lat:37.3230, lng:-122.0316}
+    ],
+    days:["mon","wed","sat"], times:["evening","night"],
+    email:"", sns:"IG: @bayarea_nikkei_pickle",
+    bio:"日本語でワイワイやってます。出張者大歓迎🇯🇵🇺🇸",
+    notes:"Bay Area 日系Pickleクラブ。Slackに招待制で参加。"
+  },
+  {
+    name:"Emma",
+    location:"Los Angeles, California, USA", lat:34.0522, lng:-118.2437, country:"United States",
+    level:"intermediate",
+    venues:[
+      {name:"Cheviot Hills Recreation Center", full:"Cheviot Hills, Los Angeles, CA, USA", lat:34.0467, lng:-118.4065}
+    ],
+    days:["wed","sat","sun"], times:["morning","evening"],
+    email:"", sns:"IG: @la_jpickle",
+    bio:"South Bay中心。Little Tokyoで集まることも",
+    notes:"MeetupグループとWhatsAppコミュニティあり。DMください。"
+  },
+  {
+    name:"Mako",
+    location:"Singapore", lat:1.3521, lng:103.8198, country:"Singapore",
+    level:"intermediate",
+    venues:[
+      {name:"Kallang Pickleball Courts", full:"Kallang, Singapore", lat:1.3020, lng:103.8724},
+      {name:"OCBC Arena", full:"OCBC Arena, Singapore", lat:1.3035, lng:103.8740}
+    ],
+    days:["sun"], times:["morning"],
+    email:"", sns:"FB: SG Nikkei Pickle",
+    bio:"駐在員メインのゆるグループ。家族連れOK。",
+    notes:"Facebookグループ『Singapore 日本人Pickleball』に参加申請。毎週日曜9時〜。"
+  },
+  {
+    name:"Takuya",
+    location:"São Paulo, Brazil", lat:-23.5505, lng:-46.6333, country:"Brazil",
+    level:"beginner",
+    venues:[
+      {name:"Clube Nipo Brasileiro", full:"Clube Nipo Brasileiro, São Paulo, Brazil", lat:-23.5619, lng:-46.6286}
+    ],
+    days:["sat","sun"], times:["day"],
+    email:"", sns:"IG: @sp_nikkei_pickle",
+    bio:"南米唯一（たぶん）の日系ピックル会。仲間募集中！",
+    notes:"日系クラブ経由で参加。日曜午後に定例会。ポル語/日本語どちらもOK。"
+  }
+];
+
+/* =================== Storage (Supabase with localStorage fallback) =================== */
+const STORAGE_KEY = "picklejp.members.v3";
+
+// Supabase is configured if config.js provides both URL and anon key (and not the placeholder).
+const HAS_SUPABASE =
+  typeof window.SUPABASE_URL === "string" && window.SUPABASE_URL.length > 10 &&
+  typeof window.SUPABASE_ANON_KEY === "string" && window.SUPABASE_ANON_KEY.length > 10 &&
+  !/YOUR_SUPABASE/i.test(window.SUPABASE_URL);
+
+const sb = HAS_SUPABASE
+  ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
+  : null;
+
+function cryptoRandom(){
+  return 'xxxxyxxx'.replace(/[xy]/g, c=>{
+    const r = Math.random()*16|0, v = c=='x'? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
+async function loadMembers(){
+  if (sb){
+    try {
+      const { data, error } = await sb.from("members")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []).map(m => ({
+        ...m,
+        days: m.days || [],
+        times: m.times || [],
+        venues: m.venues || []
+      }));
+    } catch(e){
+      console.error("Supabase load failed:", e);
+      toast(lang==="ja"
+        ? "データの読み込みに失敗しました。Supabase設定をご確認ください。"
+        : "Failed to load. Check your Supabase config.");
+      return [];
+    }
+  }
+  // Local fallback — seed from SAMPLE the first time
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e){}
+  const seeded = SAMPLE.map(m => ({...m, id: cryptoRandom(), created_at: new Date().toISOString()}));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded)); } catch(e){}
+  return seeded;
+}
+
+async function saveMember(m){
+  if (sb){
+    const payload = {
+      name: m.name, location: m.location,
+      lat: m.lat ?? null, lng: m.lng ?? null, country: m.country || null,
+      level: m.level, venues: m.venues || [],
+      days: m.days || [], times: m.times || [],
+      email: m.email || null, sns: m.sns || null,
+      bio: m.bio || null, notes: m.notes || null
+    };
+    const { data, error } = await sb.from("members").insert(payload).select().single();
+    if (error) throw error;
+    return data;
+  }
+  // Local fallback
+  const full = {...m, id: cryptoRandom(), created_at: new Date().toISOString()};
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  existing.unshift(full);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(existing)); } catch(e){}
+  return full;
+}
+
+/* =================== State =================== */
+let members = [];
+let lang = "ja";
+let selectedDays = new Set();
+let selectedTimes = new Set();
+let pickedLocation = null;   // {name, lat, lng, country}
+let pickedVenues = [];       // [{name, full, lat, lng}]
+let visitOrigin = null;      // {name, lat, lng}
+
+/* =================== Utils =================== */
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+}
+function linkify(text){
+  if (!text) return "";
+  const escaped = escapeHtml(text);
+  return escaped.replace(/(https?:\/\/[^\s]+)/g,
+    '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
+/* =================== i18n =================== */
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-ja][data-en]").forEach(el => {
+    const val = el.getAttribute("data-" + lang);
+    if (val.indexOf("<") !== -1) el.innerHTML = val;
+    else el.textContent = val;
+  });
+  document.querySelectorAll("[data-ph-ja][data-ph-en]").forEach(el => {
+    el.setAttribute("placeholder", el.getAttribute("data-ph-" + lang));
+  });
+  populateCountryFilter();
+  renderList();
+  if (visitOrigin) renderVisitResults();
+}
+
+function levelLabel(v){
+  if (v==="beginner") return lang==="ja"?"初心者":"Beginner";
+  if (v==="intermediate") return lang==="ja"?"中級":"Intermediate";
+  if (v==="advanced") return lang==="ja"?"上級":"Advanced";
+  return "";
+}
+function dayLabel(d){
+  const map = {mon:["月","Mon"],tue:["火","Tue"],wed:["水","Wed"],thu:["木","Thu"],
+               fri:["金","Fri"],sat:["土","Sat"],sun:["日","Sun"]};
+  return map[d] ? map[d][lang==="ja"?0:1] : d;
+}
+function timeLabel(t){
+  const map = {morning:["朝","Morning"],day:["日中","Day"],evening:["夕方","Evening"],night:["夜","Night"]};
+  return map[t] ? map[t][lang==="ja"?0:1] : t;
+}
+
+/* =================== Country filter =================== */
+function populateCountryFilter(){
+  const set = new Set();
+  members.forEach(m => { if (m.country) set.add(m.country); });
+  const sorted = Array.from(set).sort();
+  const sel = document.getElementById("fCountry");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${lang==="ja"?"すべての国":"All countries"}</option>`
+    + sorted.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  if (cur) sel.value = cur;
+}
+
+/* =================== Nominatim autocomplete =================== */
+async function nominatimSearch(query){
+  if (!query || query.trim().length < 2) return [];
+  const params = new URLSearchParams({
+    q: query.trim(),
+    format: "json",
+    limit: "6",
+    addressdetails: "1",
+    "accept-language": lang === "ja" ? "ja,en" : "en,ja"
+  });
+  const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!res.ok) throw new Error("network");
+  return await res.json();
+}
+
+function extractPlaceParts(r){
+  // Prefer .name for a clean venue label; fall back to first token of display_name
+  const main = r.name && r.name.trim()
+    ? r.name.trim()
+    : (r.display_name || "").split(",")[0].trim();
+  const full = r.display_name || main;
+  const country = (r.address && r.address.country) || "";
+  return {
+    name: main,
+    full,
+    country,
+    lat: parseFloat(r.lat),
+    lng: parseFloat(r.lon)
+  };
+}
+
+class AutoComplete {
+  constructor(inputId, listId, onSelect) {
+    this.input = document.getElementById(inputId);
+    this.list = document.getElementById(listId);
+    this.onSelect = onSelect;
+    this.timer = null;
+    this.lastQuery = "";
+    this.input.addEventListener("input", () => this.onInput());
+    this.input.addEventListener("focus", () => { if (this.list.innerHTML) this.show(); });
+    this.input.addEventListener("blur", () => setTimeout(() => this.hide(), 200));
+    this.input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { this.hide(); }
+    });
+  }
+  setValue(v){ this.input.value = v; }
+  clear(){ this.input.value = ""; this.list.innerHTML=""; this.hide(); }
+  show(){ this.list.hidden = false; }
+  hide(){ this.list.hidden = true; }
+
+  onInput() {
+    const q = this.input.value.trim();
+    if (q.length < 2) { this.hide(); return; }
+    clearTimeout(this.timer);
+    this.list.innerHTML = `<div class="ac-status">${lang==="ja"?"検索中…":"Searching…"}</div>`;
+    this.show();
+    this.timer = setTimeout(async () => {
+      if (this.lastQuery === q) return;
+      this.lastQuery = q;
+      try {
+        const results = await nominatimSearch(q);
+        this.render(results.map(extractPlaceParts));
+      } catch(e){
+        this.list.innerHTML = `<div class="ac-status err">${
+          lang==="ja"
+          ? "検索できません。そのまま手入力できます。"
+          : "Search unavailable — you can type freely."
+        }</div>`;
+      }
+    }, 380);
+  }
+  render(items){
+    if (!items.length){
+      this.list.innerHTML = `<div class="ac-status">${lang==="ja"?"候補がありません":"No results"}</div>`;
+      return;
+    }
+    this.list.innerHTML = items.map((p,i) => `
+      <div class="ac-item" data-i="${i}">
+        <div class="t">${escapeHtml(p.name)}</div>
+        <div class="s">${escapeHtml(p.full)}</div>
+      </div>`).join("");
+    this.list.querySelectorAll(".ac-item").forEach(el => {
+      el.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        const i = parseInt(el.dataset.i, 10);
+        this.onSelect(items[i]);
+        this.hide();
+      });
+    });
+  }
+}
+
+/* =================== Distance =================== */
+function haversineKm(a, b){
+  if (!a || !b || a.lat == null || b.lat == null) return Infinity;
+  const toRad = d => d*Math.PI/180;
+  const R = 6371;
+  const dLat = toRad(b.lat-a.lat);
+  const dLon = toRad(b.lng-a.lng);
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function distanceBadge(km){
+  if (km == null || !isFinite(km)) return "";
+  let color, label;
+  if (km < 15){ color = "tag teal"; label = lang==="ja"?"すぐそこ":"Very close"; }
+  else if (km < 50){ color = "tag yellow"; label = lang==="ja"?"近い":"Nearby"; }
+  else if (km < 200){ color = "tag"; label = lang==="ja"?"日帰り圏":"Day-trip"; }
+  else { color = "tag pink"; label = lang==="ja"?"遠方":"Far"; }
+  const kmLabel = km < 10 ? km.toFixed(1) : Math.round(km);
+  return `<span class="${color}">${kmLabel} km · ${label}</span>`;
+}
+
+/* =================== Rendering =================== */
+function memberCoords(m){
+  if (m.lat != null && m.lng != null) return { lat: m.lat, lng: m.lng };
+  // Fallback: first venue coords
+  if (m.venues && m.venues.length && m.venues[0].lat != null) {
+    return { lat: m.venues[0].lat, lng: m.venues[0].lng };
+  }
+  return null;
+}
+
+function renderStats(){
+  document.getElementById("statMembers").textContent = members.length;
+  const countries = new Set(members.map(m=>m.country).filter(Boolean));
+  document.getElementById("statCountries").textContent = countries.size;
+  const venues = new Set();
+  members.forEach(m => (m.venues||[]).forEach(v => { if (v.name) venues.add(v.name); }));
+  document.getElementById("statCourts").textContent = venues.size;
+}
+
+function memberCard(m, distanceKm){
+  const initials = (m.name||"?").trim().slice(0,1).toUpperCase();
+  const days = (m.days||[]).map(d=>`<span class="tag">${dayLabel(d)}</span>`).join("");
+  const times = (m.times||[]).map(t=>`<span class="tag teal">${timeLabel(t)}</span>`).join("");
+  const venuesHtml = (m.venues||[]).length
+    ? `<div class="venue-list">${m.venues.map(v =>
+        `<div class="v-item">${escapeHtml(v.name)}</div>`).join("")}</div>`
+    : "";
+  const contactHtml = (m.email||m.sns) ? `
+    <div class="m-section">
+      <div class="t">${lang==="ja"?"連絡先":"Contact"}</div>
+      <div class="v">${[m.email,m.sns].filter(Boolean).map(escapeHtml).join(" · ")}</div>
+    </div>` : "";
+  const notesHtml = m.notes ? `
+    <div class="m-section notes">
+      <div class="t">${lang==="ja"?"備考・参加方法":"Notes / How to join"}</div>
+      <div class="v">${linkify(m.notes)}</div>
+    </div>` : "";
+  const badge = distanceKm != null ? `<div>${distanceBadge(distanceKm)}</div>` : "";
+  return `
+    <div class="member">
+      <div class="m-head">
+        <div class="avatar">${initials}</div>
+        <div style="flex:1; min-width:0;">
+          <div class="m-name">${escapeHtml(m.name||"")}</div>
+          <div class="m-loc">${escapeHtml(m.location||"")}</div>
+        </div>
+        ${badge}
+      </div>
+      <div class="row">
+        ${m.level?`<span class="tag yellow">${levelLabel(m.level)}</span>`:""}
+        ${days}${times}
+      </div>
+      ${venuesHtml ? `<div class="m-section"><div class="t">${lang==="ja"?"プレー場所":"Venues"}</div>${venuesHtml}</div>` : ""}
+      ${contactHtml}
+      ${ m.bio? `<div class="m-section"><div class="v" style="color:var(--muted); font-style:italic;">“${escapeHtml(m.bio)}”</div></div>`:""}
+      ${notesHtml}
+    </div>`;
+}
+
+function renderList(){
+  renderStats();
+  const q = (document.getElementById("q").value || "").toLowerCase();
+  const fCountry = document.getElementById("fCountry").value;
+  const fLevel = document.getElementById("fLevel").value;
+  const list = document.getElementById("list");
+  const filtered = members.filter(m => {
+    if (fCountry && m.country !== fCountry) return false;
+    if (fLevel && m.level !== fLevel) return false;
+    if (q) {
+      const hay = [
+        m.name, m.location, m.country, m.bio, m.sns, m.notes,
+        ...(m.venues||[]).map(v=>v.name+" "+(v.full||""))
+      ].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0){
+    list.innerHTML = `<div class="empty">${lang==="ja"?"該当するメンバーが見つかりません。":"No members match your filter."}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(m => memberCard(m)).join("");
+}
+
+function renderVisitResults(){
+  const container = document.getElementById("visitResults");
+  if (!visitOrigin){
+    container.innerHTML = `<div class="empty">${
+      lang==="ja"
+      ?"上で行き先を検索して候補から選んでください。現在地ボタンも使えます。"
+      :"Search for a destination above and pick from suggestions, or use 'Current location'."
+    }</div>`;
+    return;
+  }
+  const rangeKm = parseFloat(document.getElementById("visitRange").value);
+  const ranked = members.map(m => {
+    const mc = memberCoords(m);
+    const d = mc ? haversineKm(visitOrigin, mc) : Infinity;
+    return {...m, _dist: d};
+  }).filter(m => m._dist <= rangeKm).sort((a,b)=>a._dist - b._dist);
+
+  const header = `
+    <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 18px; margin-bottom:14px;">
+      <div style="min-width:0;">
+        <div style="font-size:12px; color:var(--muted); letter-spacing:.4px; text-transform:uppercase;">
+          ${lang==="ja"?"検索地点":"Destination"}
+        </div>
+        <div style="font-weight:800; font-size:16px;">${escapeHtml(visitOrigin.name || (lang==="ja"?"選択地点":"Selected location"))}</div>
+      </div>
+      <div>
+        <span class="pill">${ranked.length} ${lang==="ja"?"件の近いコミュニティ":"communities nearby"}</span>
+      </div>
+    </div>`;
+
+  if (ranked.length === 0){
+    container.innerHTML = header + `<div class="empty">${
+      lang==="ja"
+      ?"範囲内にメンバーが見つかりませんでした。距離を広げるか、別の場所で検索してください。"
+      :"No members within this range. Try widening it or searching a different location."
+    }</div>`;
+    return;
+  }
+
+  container.innerHTML = header + `<div class="grid">${ranked.map(m => memberCard(m, m._dist)).join("")}</div>`;
+}
+
+/* =================== Tabs =================== */
+function showTab(name){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.tab===name));
+  document.getElementById("view-visit").style.display = name==="visit" ? "" : "none";
+  document.getElementById("view-browse").style.display = name==="browse" ? "" : "none";
+  document.getElementById("view-join").style.display = name==="join" ? "" : "none";
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+/* =================== Toast =================== */
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* =================== Form: venue chips =================== */
+function renderVenueChips(){
+  const box = document.getElementById("venueChips");
+  box.innerHTML = pickedVenues.map((v,i) =>
+    `<span class="venue-chip" title="${escapeHtml(v.full||v.name)}">
+       📍 ${escapeHtml(v.name)}
+       <span class="x" data-i="${i}" role="button" aria-label="remove">×</span>
+     </span>`
+  ).join("");
+  box.querySelectorAll(".x").forEach(el => {
+    el.addEventListener("click", () => {
+      const i = parseInt(el.dataset.i, 10);
+      pickedVenues.splice(i,1);
+      renderVenueChips();
+    });
+  });
+}
+
+/* =================== Form: submit =================== */
+function bindDayTimeChips(containerId, set){
+  const c = document.getElementById(containerId);
+  c.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const v = chip.dataset.val;
+      if (set.has(v)) { set.delete(v); chip.classList.remove("on"); }
+      else { set.add(v); chip.classList.add("on"); }
+    });
+  });
+}
+
+async function handleSubmit(e){
+  e.preventDefault();
+  const form = document.getElementById("joinForm");
+  const fd = new FormData(form);
+  const locInput = document.getElementById("locInput").value.trim();
+  const m = {
+    name: (fd.get("name")||"").toString().trim(),
+    level: (fd.get("level")||"").toString(),
+    email: (fd.get("email")||"").toString().trim(),
+    sns: (fd.get("sns")||"").toString().trim(),
+    bio: (fd.get("bio")||"").toString().trim(),
+    notes: (fd.get("notes")||"").toString().trim(),
+    days: Array.from(selectedDays),
+    times: Array.from(selectedTimes),
+    venues: pickedVenues.slice()
+  };
+  if (pickedLocation){
+    m.location = pickedLocation.full || pickedLocation.name;
+    m.lat = pickedLocation.lat;
+    m.lng = pickedLocation.lng;
+    m.country = pickedLocation.country || "";
+  } else if (locInput){
+    m.location = locInput;
+  }
+  if (!m.name || !m.level || !m.location){
+    toast(lang==="ja"?"お名前・レベル・居住地は必須です":"Name, level, and location are required");
+    return;
+  }
+  if (!m.venues.length){
+    toast(lang==="ja"?"プレー場所を1つ以上追加してください":"Please add at least one venue");
+    return;
+  }
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  try {
+    const saved = await saveMember(m);
+    members.unshift(saved);
+    // Reset
+    form.reset();
+    pickedLocation = null;
+    pickedVenues = [];
+    selectedDays.clear(); selectedTimes.clear();
+    document.getElementById("locInput").value = "";
+    document.getElementById("venueInput").value = "";
+    document.querySelectorAll("#daysChips .chip,#timeChips .chip").forEach(c=>c.classList.remove("on"));
+    renderVenueChips();
+    toast(lang==="ja"?"登録ありがとうございます！🎉":"Thanks for joining! 🎉");
+    showTab("browse");
+    populateCountryFilter();
+    renderList();
+  } catch(err){
+    console.error(err);
+    toast(lang==="ja"
+      ? "登録できませんでした。時間をおいてお試しください。"
+      : "Couldn't save. Please try again.");
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+function fillSample(){
+  const form = document.getElementById("joinForm");
+  form.elements["name"].value = "Sample Player";
+  form.elements["level"].value = "intermediate";
+  form.elements["email"].value = "";
+  form.elements["sns"].value = "IG: @sample";
+  form.elements["bio"].value = "楽しくダブルスしましょう！";
+  form.elements["notes"].value = "LINEグループ『世田谷ピックル』にDMで連絡。初回見学OK。";
+  pickedLocation = {
+    name: "Setagaya",
+    full: "Setagaya, Tokyo, Japan",
+    country: "Japan",
+    lat: 35.6464, lng: 139.6533
+  };
+  document.getElementById("locInput").value = pickedLocation.full;
+  pickedVenues = [
+    { name:"駒沢オリンピック公園", full:"駒沢オリンピック公園, Setagaya, Tokyo, Japan", lat:35.6253, lng:139.6612 }
+  ];
+  renderVenueChips();
+  selectedDays = new Set(["wed","sat"]);
+  selectedTimes = new Set(["morning","evening"]);
+  document.querySelectorAll("#daysChips .chip").forEach(c=>c.classList.toggle("on", selectedDays.has(c.dataset.val)));
+  document.querySelectorAll("#timeChips .chip").forEach(c=>c.classList.toggle("on", selectedTimes.has(c.dataset.val)));
+}
+
+/* =================== CSV =================== */
+function exportCsv(){
+  const headers = ["name","location","country","lat","lng","level","venues","days","times","email","sns","bio","notes","created_at"];
+  const rows = [headers.join(",")].concat(members.map(m => {
+    return headers.map(h => {
+      let v = m[h];
+      if (h==="venues") v = (m.venues||[]).map(x=>x.name).join(" | ");
+      if (h==="days" || h==="times") v = (m[h]||[]).join("|");
+      if (h==="created_at") v = m.created_at ? new Date(m.created_at).toISOString() : "";
+      if (v == null) v = "";
+      return `"${String(v).replace(/"/g,'""')}"`;
+    }).join(",");
+  }));
+  const blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "picklejp-members.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* =================== Geolocation =================== */
+function handleGeolocation(){
+  if (!navigator.geolocation){
+    toast(lang==="ja"?"このブラウザは位置情報に対応していません":"Geolocation not supported");
+    return;
+  }
+  toast(lang==="ja"?"現在地を取得しています…":"Getting your location…");
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      visitOrigin = {
+        name: lang==="ja"?"現在地":"Current location",
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+      document.getElementById("visitInput").value = visitOrigin.name;
+      renderVisitResults();
+    },
+    ()=>{ toast(lang==="ja"?"位置情報を取得できませんでした":"Couldn't get location"); },
+    { timeout: 8000 }
+  );
+}
+
+/* =================== Wire up =================== */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click", ()=>showTab(t.dataset.tab));
+});
+document.querySelectorAll(".langsw button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll(".langsw button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    lang = b.dataset.lang;
+    applyLang();
+  });
+});
+document.getElementById("ctaJoin").addEventListener("click", ()=>showTab("join"));
+document.getElementById("ctaBrowse").addEventListener("click", ()=>showTab("browse"));
+document.getElementById("ctaVisit").addEventListener("click", ()=>showTab("visit"));
+document.getElementById("q").addEventListener("input", renderList);
+document.getElementById("fCountry").addEventListener("change", renderList);
+document.getElementById("fLevel").addEventListener("change", renderList);
+document.getElementById("exportCsv").addEventListener("click", exportCsv);
+document.getElementById("btnSample").addEventListener("click", fillSample);
+document.getElementById("joinForm").addEventListener("submit", handleSubmit);
+
+document.getElementById("btnGeoloc").addEventListener("click", handleGeolocation);
+document.getElementById("btnVisitClear").addEventListener("click", ()=>{
+  visitOrigin = null;
+  document.getElementById("visitInput").value = "";
+  renderVisitResults();
+});
+document.getElementById("visitRange").addEventListener("change", renderVisitResults);
+
+bindDayTimeChips("daysChips", selectedDays);
+bindDayTimeChips("timeChips", selectedTimes);
+
+// Autocomplete instances
+const visitAC = new AutoComplete("visitInput", "visitAC", (p)=>{
+  visitOrigin = { name: p.full || p.name, lat: p.lat, lng: p.lng };
+  document.getElementById("visitInput").value = p.full || p.name;
+  renderVisitResults();
+});
+const locAC = new AutoComplete("locInput", "locAC", (p)=>{
+  pickedLocation = p;
+  document.getElementById("locInput").value = p.full || p.name;
+});
+// Also clear pickedLocation if user edits the field
+document.getElementById("locInput").addEventListener("input", () => {
+  if (pickedLocation && document.getElementById("locInput").value !== (pickedLocation.full || pickedLocation.name)){
+    pickedLocation = null;
+  }
+});
+const venueAC = new AutoComplete("venueInput", "venueAC", (p)=>{
+  pickedVenues.push({ name: p.name, full: p.full, lat: p.lat, lng: p.lng });
+  renderVenueChips();
+  document.getElementById("venueInput").value = "";
+});
+
+applyLang();
+// Show loading state then fetch from Supabase (or localStorage fallback)
+document.getElementById("list").innerHTML =
+  `<div class="empty">${lang==="ja"?"読み込み中…":"Loading…"}</div>`;
+(async () => {
+  members = await loadMembers();
+  populateCountryFilter();
+  renderList();
+  renderVisitResults();
+  // Demo-mode banner
+  if (!HAS_SUPABASE){
+    const b = document.getElementById("demoBanner");
+    if (b) b.style.display = "";
+  }
+})();
+</script>
+</body>
+</html>

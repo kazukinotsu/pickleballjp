@@ -1,0 +1,10 @@
+{
+  "name": "picklejp-community-map",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Picklejp — Japanese-speaking pickleball community map (worldwide). Static frontend + Supabase backend.",
+  "scripts": {
+    "start": "npx -y serve .",
+    "dev": "npx -y serve ."
+  }
+}
