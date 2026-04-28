@@ -8,6 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Config: set SUPABASE_URL and SUPABASE_ANON_KEY in config.js -->
 <script src="config.js"></script>
+<!-- Leaflet (world map) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root {
     --bg:#0b1020;
@@ -258,6 +261,55 @@
   .section-title .dot { width:8px; height:8px; border-radius:50%; background:var(--accent);}
 
   footer { text-align:center; color: var(--muted); margin-top: 40px; font-size: 12px;}
+
+  /* ===== Map ===== */
+  #map { width: 100%; }
+  /* Make Leaflet's default white attribution match the dark theme */
+  .leaflet-container { background: #0a0f22 !important; font-family: inherit; }
+  .leaflet-control-attribution {
+    background: rgba(15,21,48,.85) !important;
+    color: var(--muted) !important;
+    font-size: 10px !important;
+    padding: 2px 8px !important;
+  }
+  .leaflet-control-attribution a { color: var(--accent-2) !important; }
+  .leaflet-control-zoom a {
+    background: var(--panel-2) !important; color: var(--text) !important;
+    border-color: var(--line) !important;
+  }
+  .leaflet-control-zoom a:hover { background: var(--panel) !important; }
+
+  /* Custom pickleball marker — yellow-green dot with glow */
+  .pickle-marker {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #0a0f22;
+    box-shadow: 0 0 0 4px rgba(215,255,58,.25), 0 0 16px rgba(215,255,58,.55);
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .pickle-marker.lvl-advanced     { background: #ff6ad7; box-shadow: 0 0 0 4px rgba(255,106,215,.25), 0 0 16px rgba(255,106,215,.55); }
+  .pickle-marker.lvl-intermediate { background: var(--accent); }
+  .pickle-marker.lvl-beginner     { background: var(--accent-2); box-shadow: 0 0 0 4px rgba(25,211,154,.25), 0 0 16px rgba(25,211,154,.55); }
+  .pickle-marker:hover { transform: scale(1.3); }
+
+  /* Customize popup to dark theme */
+  .leaflet-popup-content-wrapper {
+    background: #0d1330 !important;
+    color: var(--text) !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 14px !important;
+    box-shadow: var(--shadow) !important;
+  }
+  .leaflet-popup-tip { background: #0d1330 !important; border: 1px solid var(--line) !important; }
+  .leaflet-popup-content { margin: 12px 14px !important; min-width: 220px; }
+  .leaflet-popup-close-button { color: var(--muted) !important; }
+  .pop-name { font-weight: 800; font-size: 14px; margin-bottom: 2px; }
+  .pop-loc  { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .pop-row  { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .pop-section { font-size: 12.5px; margin-top: 6px; }
+  .pop-section .t { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 1px; }
 </style>
 </head>
 <body>
@@ -286,6 +338,8 @@
       <div class="tabs">
         <div class="tab active" data-tab="visit"
              data-ja="訪問地で探す" data-en="Visit">訪問地で探す</div>
+        <div class="tab" data-tab="map"
+             data-ja="世界マップ" data-en="Map">世界マップ</div>
         <div class="tab" data-tab="browse"
              data-ja="メンバー一覧" data-en="Browse">メンバー一覧</div>
         <div class="tab" data-tab="join"
@@ -399,6 +453,21 @@
     </div>
 
     <div id="visitResults" style="margin-top:16px;"></div>
+  </section>
+
+  <!-- Map View -->
+  <section id="view-map" style="display:none;">
+    <div class="section-title"><span class="dot"></span>
+      <h2 data-ja="世界のメンバー分布" data-en="Members around the world">世界のメンバー分布</h2>
+    </div>
+    <div class="card" style="padding:6px;">
+      <div id="map" style="height: 560px; border-radius: 12px; overflow: hidden; background: #0a0f22;"></div>
+    </div>
+    <p class="hint" style="margin-top:10px;"
+       data-ja="ピンをクリックすると、そのメンバーの詳細が表示されます。複数の人が同じ地点にいる場合はズームすると分かれます。"
+       data-en="Click a pin to see member details. If multiple people are in one place, zoom in to separate them.">
+      ピンをクリックすると、そのメンバーの詳細が表示されます。複数の人が同じ地点にいる場合はズームすると分かれます。
+    </p>
   </section>
 
   <!-- Browse View -->
@@ -1104,9 +1173,77 @@ function renderVisitResults(){
 function showTab(name){
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.tab===name));
   document.getElementById("view-visit").style.display = name==="visit" ? "" : "none";
+  document.getElementById("view-map").style.display = name==="map" ? "" : "none";
   document.getElementById("view-browse").style.display = name==="browse" ? "" : "none";
   document.getElementById("view-join").style.display = name==="join" ? "" : "none";
   window.scrollTo({top: 0, behavior: "smooth"});
+  if (name === "map") setTimeout(initMap, 50); // wait for layout, then init/refresh
+}
+
+/* =================== World Map (Leaflet) =================== */
+let mapInstance = null;
+let mapMarkerLayer = null;
+
+function initMap(){
+  if (!window.L) return;
+  if (!mapInstance){
+    mapInstance = L.map("map", {
+      center: [25, 135],
+      zoom: 2,
+      worldCopyJump: true,
+      zoomControl: true,
+      attributionControl: true
+    });
+    // CartoDB Dark Matter (with labels) — clean dark base
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19
+    }).addTo(mapInstance);
+    mapMarkerLayer = L.layerGroup().addTo(mapInstance);
+  }
+  // Always re-render markers (members may have changed)
+  renderMapMarkers();
+  // Force resize after the container becomes visible
+  setTimeout(() => mapInstance.invalidateSize(), 100);
+}
+
+function buildPopup(m){
+  const days = (m.days||[]).map(d=>`<span class="tag">${dayLabel(d)}</span>`).join("");
+  const times = (m.times||[]).map(t=>`<span class="tag teal">${timeLabel(t)}</span>`).join("");
+  const venues = (m.venues||[]).slice(0,3).map(v=>`📍 ${escapeHtml(v.name||"")}`).join("<br/>");
+  const more = (m.venues||[]).length > 3 ? `<div style="font-size:11px;color:var(--muted);">+${(m.venues||[]).length - 3} more</div>` : "";
+  return `
+    <div class="pop-name">${escapeHtml(m.name||"")}</div>
+    <div class="pop-loc">${escapeHtml(m.location||"")}</div>
+    <div class="pop-row">
+      ${m.level?`<span class="tag yellow">${levelLabel(m.level)}</span>`:""}
+      ${days}${times}
+    </div>
+    ${venues ? `<div class="pop-section"><div class="t">${lang==="ja"?"プレー場所":"Venues"}</div>${venues}${more}</div>` : ""}
+    ${m.bio ? `<div class="pop-section" style="color:var(--muted); font-style:italic;">"${escapeHtml(m.bio)}"</div>` : ""}
+  `;
+}
+
+function renderMapMarkers(){
+  if (!mapMarkerLayer) return;
+  mapMarkerLayer.clearLayers();
+  let plotted = 0;
+  members.forEach(m => {
+    if (m.lat == null || m.lng == null) return;
+    const cls = "pickle-marker " + (m.level ? "lvl-" + m.level : "");
+    const icon = L.divIcon({
+      className: "pickle-marker-wrap",
+      html: `<div class="${cls}"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+      popupAnchor: [0, -10]
+    });
+    const marker = L.marker([m.lat, m.lng], { icon }).addTo(mapMarkerLayer);
+    marker.bindPopup(buildPopup(m), { maxWidth: 320, closeButton: true });
+    plotted++;
+  });
+  console.log(`[picklejp] plotted ${plotted}/${members.length} members on map`);
 }
 
 /* =================== Toast =================== */
@@ -1197,6 +1334,7 @@ async function handleSubmit(e){
     showTab("browse");
     populateCountryFilter();
     renderList();
+    if (mapInstance) renderMapMarkers();
   } catch(err){
     console.error(err);
     toast(lang==="ja"
@@ -1338,6 +1476,7 @@ document.getElementById("list").innerHTML =
   populateCountryFilter();
   renderList();
   renderVisitResults();
+  if (mapInstance) renderMapMarkers();
   // Demo-mode banner
   if (!HAS_SUPABASE){
     const b = document.getElementById("demoBanner");
