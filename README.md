@@ -132,3 +132,11 @@ picklejp-app/
 
 **Q. スパム対策は?**  
 → 初期段階は Supabase Dashboard で手動モデレーション。規模が大きくなってきたら、登録時 CAPTCHA (hCaptcha) 追加、メンバー承認フロー化などの対応を入れます。
+
+---
+
+## 編集機能（本人用）
+登録完了時に「編集用URL」（`?edit=<id>&token=<token>`）が発行されます。本人はこのURLから自分のエントリーを編集・削除できます。DBは `db/2026-06-03-edit-feature.sql` を Supabase の SQL Editor で実行して有効化します。
+
+## 場所検索（Google Places）
+`config.js` の `GOOGLE_MAPS_API_KEY` を設定すると施設名検索（Places API）になります。未設定時は OpenStreetMap (Nominatim) にフォールバックします。キーは Google Cloud Console で HTTPリファラー制限 + API制限（Places/Geocoding）をかけてください。
