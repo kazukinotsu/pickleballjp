@@ -1366,8 +1366,9 @@ function initMap(){
 function fitMapToMarkers(){
   if (!mapInstance) return;
   const pts = members
-    .filter(m => m.lat != null && m.lng != null)
-    .map(m => [m.lat, m.lng]);
+    .map(memberCoords)
+    .filter(c => c)
+    .map(c => [c.lat, c.lng]);
   if (pts.length >= 1){
     mapInstance.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 6 });
   } else {
