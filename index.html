@@ -422,9 +422,9 @@
         </div>
       </div>
       <p class="hint" style="margin-top:14px;"
-         data-ja="※ このデモはブラウザに保存されます。場所検索はOpenStreetMap (Nominatim) を利用しています。"
-         data-en="Demo data is saved in your browser. Place search uses OpenStreetMap (Nominatim).">
-        ※ このデモはブラウザに保存されます。場所検索はOpenStreetMap (Nominatim) を利用しています。
+         data-ja="※ 場所検索はGoogle Mapsを利用しています（利用できない場合はOpenStreetMapに自動切替）。"
+         data-en="Place search uses Google Maps (auto-falls back to OpenStreetMap if unavailable).">
+        ※ 場所検索はGoogle Mapsを利用しています（利用できない場合はOpenStreetMapに自動切替）。
       </p>
     </div>
   </section>
@@ -857,6 +857,11 @@ const HAS_GMAPS =
   !/YOUR_GOOGLE/i.test(window.GOOGLE_MAPS_API_KEY);
 
 let _gmapsPromise = null;
+// Google fires this global when API auth fails (e.g. ApiTargetBlockedMapError,
+// RefererNotAllowedMapError, billing). The script still "loads", so we flag it
+// here and let callers fall back to OpenStreetMap instead of hanging.
+window.__gmapsAuthFailed = false;
+window.gm_authFailure = function(){ window.__gmapsAuthFailed = true; };
 function loadGoogleMaps(){
   if (!HAS_GMAPS) return Promise.reject(new Error("no google maps key"));
   if (_gmapsPromise) return _gmapsPromise;
@@ -864,7 +869,7 @@ function loadGoogleMaps(){
     const s = document.createElement("script");
     s.src = "https://maps.googleapis.com/maps/api/js?key=" +
             encodeURIComponent(window.GOOGLE_MAPS_API_KEY) +
-            "&libraries=places&language=" + (lang === "ja" ? "ja" : "en");
+            "&libraries=places&loading=async&language=" + (lang === "ja" ? "ja" : "en");
     s.async = true;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error("google maps load failed"));
@@ -1072,10 +1077,23 @@ function googleProvider(){
   return {
     async suggest(q){
       await ensure();
+      if (window.__gmapsAuthFailed) throw new Error("google maps auth failed");
       if (!sessionToken) sessionToken = new google.maps.places.AutocompleteSessionToken();
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        // ハング防止: getPlacePredictions がコールバックを呼ばない場合（認証失敗等）に備える
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error("google places timeout"));
+        }, 6000);
         svc.getPlacePredictions({ input: q, sessionToken }, (preds, status) => {
-          if (status !== google.maps.places.PlacesServiceStatus.OK || !preds){ resolve([]); return; }
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          const S = google.maps.places.PlacesServiceStatus;
+          if (status === S.ZERO_RESULTS){ resolve([]); return; }
+          if (status !== S.OK || !preds){ reject(new Error("google places status: " + status)); return; }
           resolve(preds.map(p => ({
             id: p.place_id,
             name: (p.structured_formatting && p.structured_formatting.main_text) || p.description,
@@ -1107,6 +1125,44 @@ function googleProvider(){
           });
         });
       });
+    }
+  };
+}
+
+// Google を優先し、失敗（認証エラー/タイムアウト/APIブロック）時は
+// セッション中ずっと OpenStreetMap (Nominatim) に自動フォールバックする。
+// これにより検索が「検索中…」で固まることがなくなる。
+function resilientPlaceProvider(){
+  const gprov = HAS_GMAPS ? googleProvider() : null;
+  const osm = nominatimProvider();
+  let useGoogle = HAS_GMAPS;
+  return {
+    async suggest(q){
+      if (useGoogle && !window.__gmapsAuthFailed){
+        try {
+          return await gprov.suggest(q);
+        } catch(e){
+          console.warn("Google Places 利用不可 → OpenStreetMap にフォールバックします:", e && e.message);
+          useGoogle = false;
+        }
+      }
+      return await osm.suggest(q);
+    },
+    async resolve(item){
+      // OSM 由来のアイテム（_resolved を保持）は常に OSM で解決
+      if (item && item._resolved) return osm.resolve(item);
+      if (useGoogle && !window.__gmapsAuthFailed && item && item.id){
+        try {
+          return await gprov.resolve(item);
+        } catch(e){
+          console.warn("Google Places 詳細取得不可 → OpenStreetMap にフォールバックします:", e && e.message);
+          useGoogle = false;
+        }
+      }
+      // Google で解決できない場合は最後の手段として OSM 検索で代替
+      const results = await nominatimSearch(item.full || item.name);
+      if (results && results.length) return extractPlaceParts(results[0]);
+      throw new Error("resolve failed");
     }
   };
 }
@@ -1744,7 +1800,7 @@ bindDayTimeChips("daysChips", selectedDays);
 bindDayTimeChips("timeChips", selectedTimes);
 
 // Autocomplete instances
-const placeProvider = HAS_GMAPS ? googleProvider() : nominatimProvider();
+const placeProvider = resilientPlaceProvider();
 const visitAC = new AutoComplete("visitInput", "visitAC", (p)=>{
   visitOrigin = { name: p.full || p.name, lat: p.lat, lng: p.lng };
   document.getElementById("visitInput").value = p.full || p.name;
