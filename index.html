@@ -648,8 +648,6 @@
           </p>
         </div>
         <div class="full" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-          <button type="button" class="btn secondary" id="btnSample"
-            data-ja="サンプルを埋める" data-en="Fill with sample">サンプルを埋める</button>
           <button type="submit" class="btn"
             data-ja="コミュニティに登録する" data-en="Register to community">コミュニティに登録する</button>
           <button type="button" class="btn" id="btnDelete" style="display:none; background:var(--danger); color:#1a0606;"
@@ -1624,31 +1622,6 @@ async function handleSubmit(e){
   }
 }
 
-function fillSample(){
-  const form = document.getElementById("joinForm");
-  form.elements["name"].value = "Sample Player";
-  form.elements["level"].value = "intermediate";
-  form.elements["email"].value = "";
-  form.elements["sns"].value = "IG: @sample";
-  form.elements["bio"].value = "楽しくダブルスしましょう！";
-  form.elements["notes"].value = "LINEグループ『世田谷ピックル』にDMで連絡。初回見学OK。";
-  pickedLocation = {
-    name: "Setagaya",
-    full: "Setagaya, Tokyo, Japan",
-    country: "Japan",
-    lat: 35.6464, lng: 139.6533
-  };
-  document.getElementById("locInput").value = pickedLocation.full;
-  pickedVenues = [
-    { name:"駒沢オリンピック公園", full:"駒沢オリンピック公園, Setagaya, Tokyo, Japan", lat:35.6253, lng:139.6612 }
-  ];
-  renderVenueChips();
-  selectedDays = new Set(["wed","sat"]);
-  selectedTimes = new Set(["morning","evening"]);
-  document.querySelectorAll("#daysChips .chip").forEach(c=>c.classList.toggle("on", selectedDays.has(c.dataset.val)));
-  document.querySelectorAll("#timeChips .chip").forEach(c=>c.classList.toggle("on", selectedTimes.has(c.dataset.val)));
-}
-
 /* =================== CSV =================== */
 function exportCsv(){
   const headers = ["name","location","country","lat","lng","level","venues","days","times","email","sns","bio","notes","created_at"];
@@ -1763,7 +1736,6 @@ document.getElementById("q").addEventListener("input", renderList);
 document.getElementById("fCountry").addEventListener("change", renderList);
 document.getElementById("fLevel").addEventListener("change", renderList);
 document.getElementById("exportCsv").addEventListener("click", exportCsv);
-document.getElementById("btnSample").addEventListener("click", fillSample);
 document.getElementById("joinForm").addEventListener("submit", handleSubmit);
 document.getElementById("btnDelete").addEventListener("click", async () => {
   if (!editing) return;
