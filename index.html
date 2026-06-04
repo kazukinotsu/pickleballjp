@@ -1672,7 +1672,7 @@ async function loadEditFromUrl(){
       const { data, error } = await sb.rpc("get_member_for_edit", { p_id: id, p_token: token });
       if (error) throw error;
       const m = Array.isArray(data) ? data[0] : data;
-      if (!m){ toast(lang==="ja"?"編集リンクが無効です":"Invalid edit link"); return; }
+      if (!m || !m.id){ toast(lang==="ja"?"編集リンクが無効です":"Invalid edit link"); return; }
       editing = { id, token };
       fillFormForEdit({ ...m, days: m.days||[], times: m.times||[], venues: m.venues||[] });
     } else {
