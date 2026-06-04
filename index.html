@@ -670,6 +670,27 @@
 
 <div class="toast" id="toast"></div>
 
+<div id="editLinkModal" style="display:none; position:fixed; inset:0; z-index:1000;
+     background:rgba(0,0,0,.6); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#0d1330; border:1px solid var(--line); border-radius:16px;
+       max-width:520px; width:100%; padding:24px; box-shadow:var(--shadow);">
+    <div style="font-weight:800; font-size:17px; margin-bottom:6px;"
+         data-ja="登録ありがとうございます！🎉" data-en="Thanks for joining! 🎉">登録ありがとうございます！🎉</div>
+    <div style="color:var(--muted); font-size:13px; margin-bottom:14px;"
+         data-ja="このURLを保存してください。あとで自分のエントリーを編集・削除できます（あなただけのリンクです）。"
+         data-en="Save this URL. You can edit or delete your entry later (this link is private to you).">
+      このURLを保存してください。あとで自分のエントリーを編集・削除できます（あなただけのリンクです）。
+    </div>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="editLinkInput" readonly style="flex:1; font-size:12.5px;" />
+      <button class="btn" id="editLinkCopy" data-ja="コピー" data-en="Copy">コピー</button>
+    </div>
+    <div style="text-align:right; margin-top:16px;">
+      <button class="btn secondary" id="editLinkClose" data-ja="閉じる" data-en="Close">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =================== Sample data (v2 shape) =================== */
 const SAMPLE = [
@@ -857,6 +878,15 @@ function cryptoRandom(){
   });
 }
 
+function newEditToken(){
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  // フォールバック（古環境）
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{
+    const r = Math.random()*16|0, v = c==='x'? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
 async function loadMembers(){
   if (sb){
     try {
@@ -889,21 +919,25 @@ async function loadMembers(){
 }
 
 async function saveMember(m){
+  const token = newEditToken();
   if (sb){
-    const payload = {
-      name: m.name, location: m.location,
-      lat: m.lat ?? null, lng: m.lng ?? null, country: m.country || null,
-      level: m.level, venues: m.venues || [],
-      days: m.days || [], times: m.times || [],
-      email: m.email || null, sns: m.sns || null,
-      bio: m.bio || null, notes: m.notes || null
-    };
-    const { data, error } = await sb.from("members").insert(payload).select().single();
+    const { data, error } = await sb.rpc("register_member", {
+      p_payload: {
+        name: m.name, location: m.location,
+        lat: m.lat ?? null, lng: m.lng ?? null, country: m.country || null,
+        level: m.level, venues: m.venues || [],
+        days: m.days || [], times: m.times || [],
+        email: m.email || null, sns: m.sns || null,
+        bio: m.bio || null, notes: m.notes || null
+      },
+      p_token: token
+    });
     if (error) throw error;
-    return data;
+    const newId = data; // returns uuid
+    return { ...m, id: newId, edit_token: token, created_at: new Date().toISOString() };
   }
-  // Local fallback
-  const full = {...m, id: cryptoRandom(), created_at: new Date().toISOString()};
+  // Local fallback（トークンも保持して編集できるように）
+  const full = {...m, id: cryptoRandom(), edit_token: token, created_at: new Date().toISOString()};
   const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
   existing.unshift(full);
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(existing)); } catch(e){}
@@ -918,6 +952,7 @@ let selectedTimes = new Set();
 let pickedLocation = null;   // {name, lat, lng, country}
 let pickedVenues = [];       // [{name, full, lat, lng}]
 let visitOrigin = null;      // {name, lat, lng}
+let editing = null;          // 編集モード時 { id, token }
 
 /* =================== Utils =================== */
 function escapeHtml(s){
@@ -1384,6 +1419,23 @@ function toast(msg){
   setTimeout(()=>t.classList.remove("show"), 2200);
 }
 
+/* =================== Edit-link modal =================== */
+function showEditLinkModal(id, token){
+  const base = location.origin + location.pathname;
+  const url = `${base}?edit=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
+  document.getElementById("editLinkInput").value = url;
+  document.getElementById("editLinkModal").style.display = "flex";
+}
+document.getElementById("editLinkClose").addEventListener("click", () => {
+  document.getElementById("editLinkModal").style.display = "none";
+});
+document.getElementById("editLinkCopy").addEventListener("click", async () => {
+  const inp = document.getElementById("editLinkInput");
+  try { await navigator.clipboard.writeText(inp.value); }
+  catch(e){ inp.select(); document.execCommand("copy"); }
+  toast(lang==="ja" ? "URLをコピーしました" : "URL copied");
+});
+
 /* =================== Form: venue chips =================== */
 function renderVenueChips(){
   const box = document.getElementById("venueChips");
@@ -1460,11 +1512,11 @@ async function handleSubmit(e){
     document.getElementById("venueInput").value = "";
     document.querySelectorAll("#daysChips .chip,#timeChips .chip").forEach(c=>c.classList.remove("on"));
     renderVenueChips();
-    toast(lang==="ja"?"登録ありがとうございます！🎉":"Thanks for joining! 🎉");
     showTab("browse");
     populateCountryFilter();
     renderList();
     if (mapInstance) renderMapMarkers();
+    showEditLinkModal(saved.id, saved.edit_token);
   } catch(err){
     console.error(err);
     toast(lang==="ja"
