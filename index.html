@@ -310,6 +310,29 @@
   .pop-row  { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
   .pop-section { font-size: 12.5px; margin-top: 6px; }
   .pop-section .t { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 1px; }
+
+  /* ===== Mobile refinements ===== */
+  @media (max-width: 560px){
+    .wrap { padding: 16px 12px 90px; }
+    header.hero { padding: 14px 14px; gap: 12px; }
+    .brand { font-size: 16px; }
+    .brand small { font-size: 11px; }
+    .ball { width: 28px; height: 28px; }
+    header.hero > div:last-child { width: 100%; justify-content: space-between; }
+    .tabs { flex: 1; justify-content: space-between; }
+    .tab { padding: 8px 9px; font-size: 12px; }
+    .card { padding: 18px; }
+    .card h1 { font-size: 22px; line-height: 1.25; }
+    .stat .num { font-size: 19px; }
+    .stat .lbl { font-size: 10px; letter-spacing: .3px; }
+    #map { height: 62vh; }
+    .filters.card { gap: 8px; }
+    .filters input, .filters select { max-width: 100% !important; flex: 1 1 100%; }
+  }
+  @media (max-width: 380px){
+    .tab { padding: 7px 7px; font-size: 11px; }
+    .langsw button { padding: 6px 8px; }
+  }
 </style>
 </head>
 <body>
