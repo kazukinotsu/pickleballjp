@@ -1194,7 +1194,6 @@ function initMap(){
       zoomControl: true,
       attributionControl: true
     });
-    // CartoDB Dark Matter (with labels) — clean dark base
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: "abcd",
@@ -1202,10 +1201,21 @@ function initMap(){
     }).addTo(mapInstance);
     mapMarkerLayer = L.layerGroup().addTo(mapInstance);
   }
-  // Always re-render markers (members may have changed)
   renderMapMarkers();
-  // Force resize after the container becomes visible
-  setTimeout(() => mapInstance.invalidateSize(), 100);
+  // 表示確定後にサイズ補正 → 全ピンが収まるよう自動ズーム
+  setTimeout(() => { mapInstance.invalidateSize(); fitMapToMarkers(); }, 120);
+}
+
+function fitMapToMarkers(){
+  if (!mapInstance) return;
+  const pts = members
+    .filter(m => m.lat != null && m.lng != null)
+    .map(m => [m.lat, m.lng]);
+  if (pts.length >= 1){
+    mapInstance.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 6 });
+  } else {
+    mapInstance.setView([25, 135], 2);
+  }
 }
 
 function buildPopup(m){
