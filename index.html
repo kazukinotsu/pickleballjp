@@ -38,8 +38,14 @@
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP",
                  "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.55;
+    /* 日本語の不自然な改行・長いURL/英単語のはみ出しを防ぐ */
+    overflow-wrap: break-word;
+    word-break: normal;
+    line-break: strict;
   }
-  a { color: var(--accent-2); }
+  a { color: var(--accent-2); overflow-wrap: anywhere; }
+  /* 見出しは助詞・小書き仮名の前で割れないように（自然な改行） */
+  h1, h2, h3, .brand { line-break: strict; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 120px; }
 
   /* Header */
@@ -103,7 +109,7 @@
     border: 1px solid var(--line); border-radius: var(--r); padding: 22px;
     box-shadow: var(--shadow);
   }
-  .card h1 { font-size: 30px; line-height:1.2; margin: 0 0 8px; letter-spacing:.2px;}
+  .card h1 { font-size: 30px; line-height:1.2; margin: 0 0 8px; letter-spacing:.2px; word-break: auto-phrase; }
   .card .sub { color: var(--muted); margin-bottom: 14px; }
   .pill {
     display:inline-block; background: rgba(215,255,58,.1); color: var(--accent);
@@ -1064,28 +1070,63 @@ function nominatimProvider(){
 }
 
 function googleProvider(){
-  let svc = null, places = null, sessionToken = null;
+  // 2025年3月以降に作成されたGCPプロジェクトでは旧 AutocompleteService が使えないため、
+  // 新API（AutocompleteSuggestion / Place）を優先し、無ければ旧APIにフォールバックする。
+  let placesLib = null, sessionToken = null, useNew = null;
+  let legacySvc = null, legacyPlaces = null;
   async function ensure(){
     await loadGoogleMaps();
-    if (!svc){
-      svc = new google.maps.places.AutocompleteService();
-      places = new google.maps.places.PlacesService(document.createElement("div"));
+    if (!placesLib){
+      // importLibrary は新ローダ（loading=async）で推奨される取得方法
+      placesLib = (google.maps.importLibrary)
+        ? await google.maps.importLibrary("places")
+        : google.maps.places;
+      useNew = !!(placesLib && placesLib.AutocompleteSuggestion && placesLib.Place);
+      if (!useNew){
+        legacySvc = new google.maps.places.AutocompleteService();
+        legacyPlaces = new google.maps.places.PlacesService(document.createElement("div"));
+      }
     }
+  }
+  // 共通: 一定時間内に解決しなければ reject（呼び出し側がOSMにフォールバック）
+  function withTimeout(promise, ms, label){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(label + " timeout")), ms))
+    ]);
   }
   return {
     async suggest(q){
       await ensure();
       if (window.__gmapsAuthFailed) throw new Error("google maps auth failed");
+      if (useNew){
+        const { AutocompleteSuggestion, AutocompleteSessionToken } = placesLib;
+        if (!sessionToken) sessionToken = new AutocompleteSessionToken();
+        const { suggestions } = await withTimeout(
+          AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: q, sessionToken }),
+          6000, "google places(new)"
+        );
+        return (suggestions || [])
+          .filter(s => s.placePrediction)
+          .map(s => {
+            const p = s.placePrediction;
+            return {
+              id: p.placeId,
+              name: (p.mainText && p.mainText.text) || (p.text && p.text.text) || "",
+              full: (p.text && p.text.text) || ""
+            };
+          });
+      }
+      // ---- 旧API（既存顧客プロジェクト向け） ----
       if (!sessionToken) sessionToken = new google.maps.places.AutocompleteSessionToken();
       return new Promise((resolve, reject) => {
         let settled = false;
-        // ハング防止: getPlacePredictions がコールバックを呼ばない場合（認証失敗等）に備える
         const timer = setTimeout(() => {
           if (settled) return;
           settled = true;
           reject(new Error("google places timeout"));
         }, 6000);
-        svc.getPlacePredictions({ input: q, sessionToken }, (preds, status) => {
+        legacySvc.getPlacePredictions({ input: q, sessionToken }, (preds, status) => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
@@ -1102,8 +1143,28 @@ function googleProvider(){
     },
     async resolve(item){
       await ensure();
+      if (useNew){
+        const { Place } = placesLib;
+        const place = new Place({ id: item.id });
+        await withTimeout(
+          place.fetchFields({ fields: ["location", "formattedAddress", "displayName", "addressComponents"] }),
+          6000, "google place details(new)"
+        );
+        sessionToken = null; // セッション終了（課金最適化）
+        if (!place.location) throw new Error("details failed");
+        const country = (place.addressComponents || [])
+          .find(c => (c.types || []).includes("country"));
+        return {
+          name: place.displayName || item.name,
+          full: place.formattedAddress || item.full,
+          country: country ? country.longText : "",
+          lat: place.location.lat(),
+          lng: place.location.lng()
+        };
+      }
+      // ---- 旧API ----
       return new Promise((resolve, reject) => {
-        places.getDetails({
+        legacyPlaces.getDetails({
           placeId: item.id,
           fields: ["geometry", "formatted_address", "name", "address_components"],
           sessionToken
