@@ -652,6 +652,8 @@
             data-ja="サンプルを埋める" data-en="Fill with sample">サンプルを埋める</button>
           <button type="submit" class="btn"
             data-ja="コミュニティに登録する" data-en="Register to community">コミュニティに登録する</button>
+          <button type="button" class="btn" id="btnDelete" style="display:none; background:var(--danger); color:#1a0606;"
+            data-ja="このエントリーを削除" data-en="Delete this entry">このエントリーを削除</button>
         </div>
       </div>
     </form>
@@ -1466,6 +1468,27 @@ function bindDayTimeChips(containerId, set){
   });
 }
 
+function resetJoinForm(){
+  const form = document.getElementById("joinForm");
+  form.reset();
+  pickedLocation = null; pickedVenues = [];
+  selectedDays.clear(); selectedTimes.clear();
+  document.getElementById("locInput").value = "";
+  document.getElementById("venueInput").value = "";
+  document.querySelectorAll("#daysChips .chip,#timeChips .chip").forEach(c=>c.classList.remove("on"));
+  renderVenueChips();
+}
+function finishEdit(){
+  editing = null;
+  const form = document.getElementById("joinForm");
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.textContent = lang==="ja" ? "コミュニティに登録する" : "Register to community";
+  document.getElementById("btnDelete").style.display = "none";
+  resetJoinForm();
+  // URLからedit/tokenを除去
+  history.replaceState({}, "", location.origin + location.pathname);
+}
+
 async function handleSubmit(e){
   e.preventDefault();
   const form = document.getElementById("joinForm");
@@ -1501,27 +1524,44 @@ async function handleSubmit(e){
   const submitBtn = form.querySelector('button[type="submit"]');
   submitBtn.disabled = true;
   try {
-    const saved = await saveMember(m);
-    members.unshift(saved);
-    // Reset
-    form.reset();
-    pickedLocation = null;
-    pickedVenues = [];
-    selectedDays.clear(); selectedTimes.clear();
-    document.getElementById("locInput").value = "";
-    document.getElementById("venueInput").value = "";
-    document.querySelectorAll("#daysChips .chip,#timeChips .chip").forEach(c=>c.classList.remove("on"));
-    renderVenueChips();
-    showTab("browse");
-    populateCountryFilter();
-    renderList();
-    if (mapInstance) renderMapMarkers();
-    showEditLinkModal(saved.id, saved.edit_token);
+    if (editing){
+      if (sb){
+        const { error } = await sb.rpc("update_member", {
+          p_id: editing.id, p_token: editing.token,
+          p_payload: {
+            name: m.name, location: m.location,
+            lat: m.lat ?? null, lng: m.lng ?? null, country: m.country || null,
+            level: m.level, venues: m.venues || [],
+            days: m.days || [], times: m.times || [],
+            email: m.email || null, sns: m.sns || null,
+            bio: m.bio || null, notes: m.notes || null
+          }
+        });
+        if (error) throw error;
+      } else {
+        const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        const idx = arr.findIndex(x => x.id === editing.id);
+        if (idx >= 0){ arr[idx] = { ...arr[idx], ...m }; localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+      }
+      const idx = members.findIndex(x => x.id === editing.id);
+      if (idx >= 0) members[idx] = { ...members[idx], ...m };
+      finishEdit();
+      toast(lang==="ja" ? "更新しました ✅" : "Updated ✅");
+      showTab("browse");
+      populateCountryFilter(); renderList();
+      if (mapInstance) renderMapMarkers();
+    } else {
+      const saved = await saveMember(m);
+      members.unshift(saved);
+      resetJoinForm();
+      showTab("browse");
+      populateCountryFilter(); renderList();
+      if (mapInstance) renderMapMarkers();
+      showEditLinkModal(saved.id, saved.edit_token);
+    }
   } catch(err){
     console.error(err);
-    toast(lang==="ja"
-      ? "登録できませんでした。時間をおいてお試しください。"
-      : "Couldn't save. Please try again.");
+    toast(lang==="ja" ? "保存できませんでした。時間をおいてお試しください。" : "Couldn't save. Please try again.");
   } finally {
     submitBtn.disabled = false;
   }
@@ -1594,6 +1634,59 @@ function handleGeolocation(){
   );
 }
 
+/* =================== Self-edit =================== */
+function fillFormForEdit(m){
+  const form = document.getElementById("joinForm");
+  form.elements["name"].value  = m.name || "";
+  form.elements["level"].value = m.level || "";
+  form.elements["email"].value = m.email || "";
+  form.elements["sns"].value   = m.sns || "";
+  form.elements["bio"].value   = m.bio || "";
+  form.elements["notes"].value = m.notes || "";
+  pickedLocation = (m.lat != null && m.lng != null)
+    ? { name: m.location, full: m.location, country: m.country || "", lat: m.lat, lng: m.lng }
+    : null;
+  document.getElementById("locInput").value = m.location || "";
+  pickedVenues = (m.venues || []).slice();
+  renderVenueChips();
+  selectedDays = new Set(m.days || []);
+  selectedTimes = new Set(m.times || []);
+  document.querySelectorAll("#daysChips .chip").forEach(c=>c.classList.toggle("on", selectedDays.has(c.dataset.val)));
+  document.querySelectorAll("#timeChips .chip").forEach(c=>c.classList.toggle("on", selectedTimes.has(c.dataset.val)));
+  // ボタンラベル＆削除ボタン
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.textContent = lang==="ja" ? "更新する" : "Update";
+  document.getElementById("btnDelete").style.display = "";
+  showTab("join");
+  toast(lang==="ja" ? "編集モードです" : "Editing your entry");
+}
+
+async function loadEditFromUrl(){
+  const params = new URLSearchParams(location.search);
+  const id = params.get("edit");
+  const token = params.get("token");
+  if (!id || !token) return;
+  try {
+    if (sb){
+      const { data, error } = await sb.rpc("get_member_for_edit", { p_id: id, p_token: token });
+      if (error) throw error;
+      const m = Array.isArray(data) ? data[0] : data;
+      if (!m){ toast(lang==="ja"?"編集リンクが無効です":"Invalid edit link"); return; }
+      editing = { id, token };
+      fillFormForEdit({ ...m, days: m.days||[], times: m.times||[], venues: m.venues||[] });
+    } else {
+      const local = (JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"))
+        .find(x => x.id === id && x.edit_token === token);
+      if (!local){ toast(lang==="ja"?"編集リンクが無効です":"Invalid edit link"); return; }
+      editing = { id, token };
+      fillFormForEdit(local);
+    }
+  } catch(e){
+    console.error(e);
+    toast(lang==="ja" ? "編集データを取得できませんでした" : "Couldn't load edit data");
+  }
+}
+
 /* =================== Wire up =================== */
 document.querySelectorAll(".tab").forEach(t=>{
   t.addEventListener("click", ()=>showTab(t.dataset.tab));
@@ -1615,6 +1708,28 @@ document.getElementById("fLevel").addEventListener("change", renderList);
 document.getElementById("exportCsv").addEventListener("click", exportCsv);
 document.getElementById("btnSample").addEventListener("click", fillSample);
 document.getElementById("joinForm").addEventListener("submit", handleSubmit);
+document.getElementById("btnDelete").addEventListener("click", async () => {
+  if (!editing) return;
+  if (!confirm(lang==="ja" ? "このエントリーを削除しますか？元に戻せません。" : "Delete this entry? This cannot be undone.")) return;
+  try {
+    if (sb){
+      const { error } = await sb.rpc("delete_member", { p_id: editing.id, p_token: editing.token });
+      if (error) throw error;
+    } else {
+      const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").filter(x => x.id !== editing.id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+    }
+    members = members.filter(x => x.id !== editing.id);
+    finishEdit();
+    toast(lang==="ja" ? "削除しました" : "Deleted");
+    showTab("browse");
+    populateCountryFilter(); renderList();
+    if (mapInstance) renderMapMarkers();
+  } catch(e){
+    console.error(e);
+    toast(lang==="ja" ? "削除できませんでした" : "Couldn't delete");
+  }
+});
 
 document.getElementById("btnGeoloc").addEventListener("click", handleGeolocation);
 document.getElementById("btnVisitClear").addEventListener("click", ()=>{
@@ -1665,6 +1780,7 @@ document.getElementById("list").innerHTML =
     const b = document.getElementById("demoBanner");
     if (b) b.style.display = "";
   }
+  await loadEditFromUrl();
 })();
 </script>
 </body>
