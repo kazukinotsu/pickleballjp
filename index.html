@@ -324,9 +324,12 @@
     .brand { font-size: 16px; }
     .brand small { font-size: 11px; }
     .ball { width: 28px; height: 28px; }
-    header.hero > div:last-child { width: 100%; justify-content: space-between; }
-    .tabs { flex: 1; justify-content: space-between; }
-    .tab { padding: 8px 9px; font-size: 12px; }
+    header.hero > div:last-child { width: 100%; justify-content: space-between; row-gap: 10px; }
+    /* タブは全幅で1行に。ラベルは折り返さず、入りきらなければ横スクロール */
+    .tabs { flex: 1 1 100%; justify-content: space-between; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 8px 6px; font-size: 12px; white-space: nowrap; flex: 0 0 auto; }
+    .langsw { flex: 0 0 auto; }
     .card { padding: 18px; }
     .card h1 { font-size: 22px; line-height: 1.25; }
     .stat .num { font-size: 19px; }
@@ -336,7 +339,7 @@
     .filters input, .filters select { max-width: 100% !important; flex: 1 1 100%; }
   }
   @media (max-width: 380px){
-    .tab { padding: 7px 7px; font-size: 11px; }
+    .tab { padding: 7px 6px; font-size: 11px; }
     .langsw button { padding: 6px 8px; }
   }
 </style>
