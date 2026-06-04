@@ -983,11 +983,29 @@ function extractPlaceParts(r){
   };
 }
 
+/* =================== Place provider abstraction =================== */
+// 各プロバイダは2メソッドを持つ:
+//   suggest(query) -> [{ id, name, full, _resolved? }]
+//   resolve(item)  -> { name, full, country, lat, lng }
+function nominatimProvider(){
+  return {
+    async suggest(q){
+      const results = await nominatimSearch(q);
+      return results.map(r => {
+        const p = extractPlaceParts(r);
+        return { id: null, name: p.name, full: p.full, _resolved: p };
+      });
+    },
+    async resolve(item){ return item._resolved; }
+  };
+}
+
 class AutoComplete {
-  constructor(inputId, listId, onSelect) {
+  constructor(inputId, listId, onSelect, provider) {
     this.input = document.getElementById(inputId);
     this.list = document.getElementById(listId);
     this.onSelect = onSelect;
+    this.provider = provider;
     this.timer = null;
     this.lastQuery = "";
     this.input.addEventListener("input", () => this.onInput());
@@ -1012,8 +1030,8 @@ class AutoComplete {
       if (this.lastQuery === q) return;
       this.lastQuery = q;
       try {
-        const results = await nominatimSearch(q);
-        this.render(results.map(extractPlaceParts));
+        const items = await this.provider.suggest(q);
+        this.render(items);
       } catch(e){
         this.list.innerHTML = `<div class="ac-status err">${
           lang==="ja"
@@ -1034,11 +1052,16 @@ class AutoComplete {
         <div class="s">${escapeHtml(p.full)}</div>
       </div>`).join("");
     this.list.querySelectorAll(".ac-item").forEach(el => {
-      el.addEventListener("mousedown", (e) => {
+      el.addEventListener("mousedown", async (e) => {
         e.preventDefault();
         const i = parseInt(el.dataset.i, 10);
-        this.onSelect(items[i]);
         this.hide();
+        try {
+          const resolved = await this.provider.resolve(items[i]);
+          if (resolved) this.onSelect(resolved);
+        } catch(err){
+          toast(lang==="ja" ? "場所の取得に失敗しました" : "Couldn't load that place");
+        }
       });
     });
   }
@@ -1479,15 +1502,16 @@ bindDayTimeChips("daysChips", selectedDays);
 bindDayTimeChips("timeChips", selectedTimes);
 
 // Autocomplete instances
+const placeProvider = nominatimProvider(); // ④-bでGoogle対応に差し替え
 const visitAC = new AutoComplete("visitInput", "visitAC", (p)=>{
   visitOrigin = { name: p.full || p.name, lat: p.lat, lng: p.lng };
   document.getElementById("visitInput").value = p.full || p.name;
   renderVisitResults();
-});
+}, placeProvider);
 const locAC = new AutoComplete("locInput", "locAC", (p)=>{
   pickedLocation = p;
   document.getElementById("locInput").value = p.full || p.name;
-});
+}, placeProvider);
 // Also clear pickedLocation if user edits the field
 document.getElementById("locInput").addEventListener("input", () => {
   if (pickedLocation && document.getElementById("locInput").value !== (pickedLocation.full || pickedLocation.name)){
@@ -1498,7 +1522,7 @@ const venueAC = new AutoComplete("venueInput", "venueAC", (p)=>{
   pickedVenues.push({ name: p.name, full: p.full, lat: p.lat, lng: p.lng });
   renderVenueChips();
   document.getElementById("venueInput").value = "";
-});
+}, placeProvider);
 
 applyLang();
 // Show loading state then fetch from Supabase (or localStorage fallback)
