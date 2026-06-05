@@ -4,6 +4,20 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Picklejp Community Map / 世界の日系ピックルボールコミュニティ</title>
+<!-- SEO / SNSリンクプレビュー用メタ（OGP）。これが無いとクローラが本文を拾い、
+     誤って「デモモード」等の隠しテキストをプレビューに表示してしまう。 -->
+<meta name="description" content="行き先を入れるだけ。世界中の日系・日本語ピックルボールコミュニティが見つかるマップ。海外在住の方も、日本へ行く方も、仲間とプレー場所を探せます。" />
+<link rel="canonical" href="https://picklejp.gepartners.ai/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Picklejp Community Map" />
+<meta property="og:title" content="Picklejp Community Map / 世界の日系ピックルボールコミュニティ" />
+<meta property="og:description" content="行き先を入れるだけ。世界中の日系・日本語ピックルボールコミュニティが見つかるマップ。海外在住の方も、日本へ行く方も、仲間とプレー場所を探せます。" />
+<meta property="og:url" content="https://picklejp.gepartners.ai/" />
+<meta property="og:locale" content="ja_JP" />
+<meta property="og:locale:alternate" content="en_US" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Picklejp Community Map / 世界の日系ピックルボールコミュニティ" />
+<meta name="twitter:description" content="行き先を入れるだけ。世界中の日系・日本語ピックルボールコミュニティが見つかるマップ。" />
 <!-- Supabase JavaScript client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Config: set SUPABASE_URL and SUPABASE_ANON_KEY in config.js -->
@@ -350,10 +364,9 @@
   <!-- Demo-mode banner (shown when Supabase is not configured) -->
   <div id="demoBanner" style="display:none; margin-bottom:14px; padding:10px 14px; border-radius:12px;
     background: rgba(255,170,0,.12); border:1px solid rgba(255,170,0,.4); color:#ffd38a; font-size:13px;">
+    <!-- テキストは applyLang() がJSで設定（静的HTMLに置くとSNSプレビューに誤表示されるため空にしている） -->
     <span data-ja="⚠️ デモモード: config.js にSupabase認証情報が設定されていないため、データはこの端末のブラウザのみに保存されます。"
-          data-en="⚠️ Demo mode: config.js is not set up with Supabase credentials. Data is stored only in this browser.">
-      ⚠️ デモモード: config.js にSupabase認証情報が設定されていないため、データはこの端末のブラウザのみに保存されます。
-    </span>
+          data-en="⚠️ Demo mode: config.js is not set up with Supabase credentials. Data is stored only in this browser."></span>
   </div>
 
   <!-- Header -->
