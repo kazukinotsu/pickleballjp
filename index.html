@@ -1081,12 +1081,21 @@ function googleProvider(){
   let legacySvc = null, legacyPlaces = null;
   async function ensure(){
     await loadGoogleMaps();
-    if (!placesLib){
-      // importLibrary は新ローダ（loading=async）で推奨される取得方法
-      placesLib = (google.maps.importLibrary)
-        ? await google.maps.importLibrary("places")
-        : google.maps.places;
+    if (placesLib) return;
+    // loading=async ではスクリプト onload 直後に google.maps.importLibrary が
+    // まだ未定義のことがある（初回検索が空振りする原因）。利用可能になるまで待つ。
+    let tries = 0;
+    while ((!window.google || !google.maps ||
+            typeof google.maps.importLibrary !== "function") && tries < 100){
+      await new Promise(r => setTimeout(r, 50));
+      tries++;
     }
+    if (window.google && google.maps && typeof google.maps.importLibrary === "function"){
+      placesLib = await google.maps.importLibrary("places");
+    } else if (window.google && google.maps && google.maps.places){
+      placesLib = google.maps.places; // フォールバック（libraries=places 読み込み済み）
+    }
+    if (!placesLib) throw new Error("google places library unavailable");
   }
   function token(){
     if (!sessionToken) sessionToken = new placesLib.AutocompleteSessionToken();
@@ -1201,7 +1210,7 @@ function googleProvider(){
         mode = 'legacy';
         return r;
       } catch(eLegacy){
-        if (placesLib.AutocompleteSuggestion && placesLib.Place){
+        if (placesLib && placesLib.AutocompleteSuggestion && placesLib.Place){
           const r = await newSuggest(q); // ここで失敗したら throw → 呼び出し側でOSM
           mode = 'new';
           return r;
