@@ -1,0 +1,54 @@
+{
+  "updated": "2026-08-09",
+  "note": "このファイルは編集用テンプレートです。confidence が 'sample' の行は構造を示すダミーで、実在の発売日ではありません。リーク/コレクター情報を得たら date と confidence を実データに差し替えてください。tcin を入れると Target の自動監視(発売日・購入可否)が有効になります。",
+  "confidenceLevels": {
+    "confirmed": "小売公式・POS等で確定",
+    "rumored": "リーク/コミュニティ情報（未確定）",
+    "window": "月/週など時期のみ判明",
+    "sample": "サンプル行（実データではない）"
+  },
+  "drops": [
+    {
+      "id": "tgt-sample-1",
+      "name": "スクワッド例 / Squishmallow 8\" Squad（差し替え用サンプル）",
+      "retailer": "target",
+      "date": "2026-08-20",
+      "confidence": "sample",
+      "tcin": "",
+      "sku": "",
+      "size": "8in",
+      "price": "$14.99",
+      "notes": "Target の TCIN を入れると自動監視が有効化されます。/api/target-check?keyword=squishmallow で見つけた TCIN をここに貼るのが早いです。",
+      "source": "",
+      "image": ""
+    },
+    {
+      "id": "wmt-sample-1",
+      "name": "スクワッド例 / Squishmallow 5\" Mystery Squad（差し替え用サンプル）",
+      "retailer": "walmart",
+      "date": "2026-08-27",
+      "confidence": "sample",
+      "tcin": "",
+      "sku": "",
+      "size": "5in",
+      "price": "$9.98",
+      "notes": "Walmart は現状カレンダー管理のみ（自動監視は未対応）。発売日はリーク情報で更新してください。",
+      "source": "",
+      "image": ""
+    },
+    {
+      "id": "wba-sample-1",
+      "name": "スクワッド例 / Walgreens 限定スクワッド（差し替え用サンプル）",
+      "retailer": "walgreens",
+      "date": "",
+      "confidence": "window",
+      "tcin": "",
+      "sku": "",
+      "size": "8in",
+      "price": "$16.99",
+      "notes": "Walgreens は例年、独自の限定スクワッドを店頭中心で展開。時期のみ判明の場合は confidence=window、date は空でOK。",
+      "source": "",
+      "image": ""
+    }
+  ]
+}

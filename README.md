@@ -140,3 +140,24 @@ picklejp-app/
 
 ## 場所検索（Google Places）
 `config.js` の `GOOGLE_MAPS_API_KEY` を設定すると施設名検索（Places API）になります。未設定時は OpenStreetMap (Nominatim) にフォールバックします。キーは Google Cloud Console で HTTPリファラー制限 + API制限（Places/Geocoding）をかけてください。
+
+---
+
+## Squishmallow Drop Radar（`/drops`）
+
+Squishmallow の新作・限定ドロップを **Target / Walmart / Walgreens** の3店について「事前に把握」するツール。ピックルボール本体とは独立した追加ページで、同じ Vercel でそのまま配信されます。
+
+- **ページ**: [`drops.html`](./drops.html) → 本番では `/drops`（`vercel.json` の cleanUrls）
+- **カレンダーデータ**: [`drops-data.json`](./drops-data.json) — 今後のドロップ予定（スクワッド名・予定日・確度・TCIN）。`confidence: "sample"` の行は構造を示すダミーなので、リーク/コレクター情報で差し替えて運用します。
+- **Target 自動監視（サーバー関数）**: [`api/target-check.js`](./api/target-check.js) — Target が内部利用する公開商品API **Redsky** をサーバー側から叩き、CORS を回避して以下を取得：
+  - `?tcin=…` … 特定商品の発売日(street date)・購入可否・在庫シグナル
+  - `?keyword=squishmallow` … いま Target に登録済みの SKU 一覧 → カレンダー未登録＝**未告知ドロップの早期検知**
+
+### なぜ「事前に分かる」のか
+小売の商品DBには、一般販売が始まる前に SKU（Target なら TCIN）と発売日が登録されます。Redsky はその情報を露出するため、棚に並ぶ前・購入可能になる前に検知できます。Walmart / Walgreens は bot 対策が強く安定監視が難しいため、現状はカレンダー管理（手動・コミュニティ更新）です。
+
+### Target APIキー
+Redsky の `key` は target.com フロントに埋め込まれた公開キーで、定期的にローテーションされます。失効したら Vercel の環境変数 **`TARGET_REDSKY_KEY`** に最新の公開キーを設定してください（未設定時はコード内フォールバックを使用）。
+
+### ローカル確認の注意
+`npm start`（静的配信）では `api/` のサーバー関数が動かないため、Target 自動監視は無効化され、ページ上部に案内バナーが出ます。監視まで含めて確認するには Vercel にデプロイするか `vercel dev` を使ってください。カレンダー表示・フィルタ・自分用ドロップ追加（端末内 localStorage 保存）は静的環境でも動作します。
