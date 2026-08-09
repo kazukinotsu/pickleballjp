@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Squishmallow Drop Radar / ドロップ事前予測（Target・Walmart・Walgreens）</title>
-<meta name="description" content="Squishmallow の新作・限定ドロップを Target / Walmart / Walgreens の3店で事前に把握。Target は商品API(Redsky)を自動監視し、発売日・購入可否・未告知SKUを早期検知します。" />
+<meta name="description" content="Squishmallow の新作・限定ドロップを Target / Walmart / Walgreens の3店で事前に把握。ZIPを入れると最寄り店舗基準で、いつ・何がドロップされるかを明確化します。" />
 <meta name="robots" content="noindex" />
 <style>
   :root{
@@ -52,7 +52,18 @@
   .banner.show{display:block}
   .banner b{color:var(--text)}
 
-  .toolbar{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  /* Location bar */
+  .locbar{margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .locbar .ic{font-size:18px}
+  .locbar label{font-size:12px;color:var(--muted)}
+  .locbar input{width:120px;background:var(--bg);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:9px 10px;font-size:14px;font-family:inherit;letter-spacing:1px}
+  .locbar .store{font-size:13px;color:var(--text)}
+  .locbar .store b{color:var(--mint)}
+  .locbar .muted{color:var(--muted);font-size:12px}
+
+  .toolbar{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .chips{display:inline-flex;gap:6px;background:var(--panel);border:1px solid var(--line);padding:4px;border-radius:999px;flex-wrap:wrap}
   .chip{padding:7px 13px;border-radius:999px;cursor:pointer;font-weight:700;font-size:12px;color:var(--muted);user-select:none;border:0;background:transparent}
   .chip.on{background:var(--lav);color:#161033}
@@ -67,6 +78,17 @@
   .grow{flex:1}
   label.toggle{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;cursor:pointer}
 
+  /* Next drop hero */
+  .next{margin-top:18px;display:none;gap:16px;align-items:center;border-radius:16px;padding:18px 20px;
+    background:linear-gradient(135deg,rgba(255,143,199,.16),rgba(179,167,255,.10));border:1px solid rgba(255,143,199,.35)}
+  .next.show{display:flex;flex-wrap:wrap}
+  .next .big{font-size:40px;line-height:1;font-weight:900;letter-spacing:-1px}
+  .next .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .next .name{font-size:17px;font-weight:800;margin:2px 0}
+  .next .sub{font-size:13px;color:var(--muted)}
+  .next .cta{margin-left:auto;font-weight:800;text-decoration:none;background:var(--pink);color:#3a1030;
+    padding:10px 16px;border-radius:10px}
+
   .stat-row{margin-top:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media(max-width:720px){.stat-row{grid-template-columns:repeat(2,1fr)}}
   .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
@@ -77,13 +99,22 @@
   h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
   h2 .pill{font-size:11px;color:var(--muted);font-weight:600;border:1px solid var(--line);padding:2px 8px;border-radius:999px}
 
+  .group{margin:16px 0 6px;display:flex;align-items:center;gap:10px}
+  .group h3{font-size:13px;margin:0;color:var(--text)}
+  .group .ln{flex:1;height:1px;background:var(--line)}
+  .group .ct{font-size:11px;color:var(--muted)}
+
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .card.hot{border-color:rgba(255,143,199,.5);box-shadow:0 0 0 1px rgba(255,143,199,.25)}
   .card .top{display:flex;gap:12px;padding:14px}
   .thumb{width:64px;height:64px;border-radius:12px;flex:0 0 auto;background:var(--panel-2);
     background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:26px}
   .card h3{font-size:14px;margin:0 0 4px;line-height:1.35}
+  .whenline{font-size:13px;font-weight:800;margin:1px 0 2px}
   .meta{font-size:12px;color:var(--muted)}
+  .cd{font-weight:900;font-size:12px;color:var(--pink)}
+  .cd.past{color:var(--muted)}
   .badges{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px}
   .badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;letter-spacing:.2px}
   .b-target{background:rgba(204,0,0,.16);color:#ff9d9d;border:1px solid rgba(204,0,0,.4)}
@@ -97,13 +128,11 @@
   .b-soon{background:rgba(255,143,199,.18);color:#ffc3e0;border:1px solid rgba(255,143,199,.5)}
   .b-mon{background:transparent;color:var(--muted);border:1px solid var(--line)}
   .b-user{background:rgba(179,167,255,.12);color:#cfc6ff;border:1px dashed rgba(179,167,255,.5)}
-  .cd{font-weight:900;font-size:12px}
-  .cd.past{color:var(--muted)}
-  .card .foot{margin-top:auto;display:flex;gap:8px;padding:0 14px 14px}
+  .card .foot{margin-top:auto;display:flex;gap:8px;align-items:center;padding:0 14px 14px}
   .lnk{font-size:12px;font-weight:700;text-decoration:none;color:var(--mint)}
   .del{margin-left:auto;font-size:12px;color:var(--muted);background:none;border:0;cursor:pointer}
 
-  details.form{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 14px}
+  details.form{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 14px}
   details.form summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--text);padding:6px 0}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
   @media(max-width:560px){.grid2{grid-template-columns:1fr}}
@@ -124,13 +153,22 @@
     <div class="logo">
       <div class="mallow" aria-hidden="true"></div>
       <div class="brand">Squishmallow Drop Radar
-        <small>Target・Walmart・Walgreens のドロップを事前に把握</small>
+        <small>いつ・何がドロップされるか、最寄り店舗基準で先読み</small>
       </div>
     </div>
     <a class="backlink" href="/">← Picklejp Map</a>
   </header>
 
   <div id="apiBanner" class="banner"></div>
+
+  <!-- 住所(ZIP)入力 → 最寄り Target 店舗 -->
+  <div class="locbar">
+    <span class="ic">📍</span>
+    <label for="zip">あなたのZIP</label>
+    <input id="zip" inputmode="numeric" maxlength="5" placeholder="94022" />
+    <button class="btn" id="zipBtn">最寄り店舗を探す</button>
+    <span class="store" id="storeInfo"><span class="muted">ZIPを入れると、その地域のTarget店舗基準で在庫・発売日を判定します。</span></span>
+  </div>
 
   <div class="toolbar">
     <div class="chips" id="retailerChips">
@@ -150,6 +188,9 @@
     <label class="toggle"><input type="checkbox" id="autoChk"> 自動更新(10分)</label>
   </div>
 
+  <!-- 次のドロップ強調 -->
+  <div class="next" id="nextHero"></div>
+
   <div class="stat-row">
     <div class="stat"><div class="n" id="stTotal">–</div><div class="l">登録ドロップ</div></div>
     <div class="stat"><div class="n" id="stSoon">–</div><div class="l">7日以内</div></div>
@@ -158,8 +199,8 @@
   </div>
 
   <section class="block">
-    <h2>📅 ドロップ・カレンダー <span class="pill" id="calCount"></span></h2>
-    <div class="cards" id="calCards"></div>
+    <h2>📅 いつ・何がドロップ？ <span class="pill" id="calCount"></span></h2>
+    <div id="calGroups"></div>
     <p id="calEmpty" class="empty" style="display:none">条件に合うドロップがありません。</p>
 
     <details class="form" id="addForm">
@@ -183,15 +224,15 @@
   </section>
 
   <section class="block">
-    <h2>🛰️ Target 早期検知 <span class="pill">カレンダー未登録の新SKU＝未告知ドロップの可能性</span></h2>
+    <h2>🛰️ Target 早期検知 <span class="pill">未告知SKU＝これからドロップの可能性。発売日順に表示</span></h2>
     <div class="cards" id="scanCards"></div>
-    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、いま Target の商品DBに載っている Squishmallow を取得し、カレンダーに無いものを新候補として表示します。</p>
+    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、いま Target の商品DBに載っている Squishmallow を取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します。</p>
   </section>
 
   <footer>
     <p>「事前に分かる」仕組み：小売の商品DBには一般販売前に SKU と発売日(street date)が登録されます。
        Target はその情報を <b>Redsky API</b> で露出するため、棚に並ぶ前・購入可能になる前に検知できます。
-       Walmart / Walgreens は現状カレンダー管理（手動/コミュニティ更新）です。</p>
+       ZIP を入れると最寄り店舗基準で判定します。Walmart / Walgreens は現状カレンダー管理（手動/コミュニティ更新）です。</p>
     <p class="muted">サンプル行は構造を示すダミーで、実在の発売日ではありません。<code>drops-data.json</code> を実データに差し替えてください。</p>
   </footer>
 </div>
@@ -199,40 +240,58 @@
 <script>
 const KW = "squishmallow";
 const LS_USER = "sqdrops_user_v1";
-const state = { data:[], user:[], retailer:"all", status:"all", live:{}, scan:[], apiOk:null };
+const LS_ZIP = "sqdrops_zip_v1";
+const state = { data:[], user:[], retailer:"all", status:"all", live:{}, scan:[], apiOk:null, zip:"", store:null };
 
 const $ = s => document.querySelector(s);
 const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const todayStr = () => new Date().toISOString().slice(0,10);
+const WD = ["日","月","火","水","木","金","土"];
 
 function daysUntil(dateStr){
   if(!dateStr) return null;
-  const d = new Date(dateStr+"T00:00:00");
-  if(isNaN(d)) return null;
+  const d = new Date(dateStr+"T00:00:00"); if(isNaN(d)) return null;
   const t = new Date(todayStr()+"T00:00:00");
   return Math.round((d - t)/86400000);
+}
+function fmtDate(dateStr){
+  if(!dateStr) return "日付未定";
+  const d = new Date(dateStr+"T00:00:00"); if(isNaN(d)) return dateStr;
+  return `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
 }
 function countdownLabel(dateStr){
   const n = daysUntil(dateStr);
   if(n===null) return {txt:"日付未定", past:false};
-  if(n<0) return {txt:`${-n}日前に発売`, past:true};
+  if(n<0) return {txt:`${-n}日前に発売済`, past:true};
   if(n===0) return {txt:"本日ドロップ！", past:false};
   if(n===1) return {txt:"明日ドロップ", past:false};
   return {txt:`あと ${n} 日`, past:false};
 }
+function bucketOf(dateStr){
+  const n = daysUntil(dateStr);
+  if(n===null) return "tba";
+  if(n<0) return "past";
+  if(n===0) return "today";
+  if(n<=7) return "week";
+  if(n<=31) return "month";
+  return "later";
+}
+const BUCKETS = [
+  {k:"today", t:"🔥 今日ドロップ"},
+  {k:"week",  t:"📆 今週（7日以内）"},
+  {k:"month", t:"🗓 今月（1か月以内）"},
+  {k:"later", t:"⏭ それ以降"},
+  {k:"tba",   t:"❓ 日付未定"},
+  {k:"past",  t:"✅ 発売済み"},
+];
 
 async function loadJSON(){
-  try{
-    const r = await fetch("drops-data.json?_="+Date.now());
-    const j = await r.json();
-    state.data = (j.drops||[]).map(d=>({...d, _src:"json"}));
-  }catch(e){ state.data = []; }
+  try{ const r = await fetch("drops-data.json?_="+Date.now()); const j = await r.json();
+    state.data = (j.drops||[]).map(d=>({...d, _src:"json"})); }
+  catch(e){ state.data = []; }
   loadUser();
 }
-function loadUser(){
-  try{ state.user = JSON.parse(localStorage.getItem(LS_USER)||"[]"); }
-  catch(e){ state.user = []; }
-}
+function loadUser(){ try{ state.user = JSON.parse(localStorage.getItem(LS_USER)||"[]"); }catch(e){ state.user = []; } }
 function saveUser(){ localStorage.setItem(LS_USER, JSON.stringify(state.user)); }
 
 function allDrops(){
@@ -248,10 +307,7 @@ function filtered(){
     return true;
   }).sort((a,b)=>{
     const na=daysUntil(a.date), nb=daysUntil(b.date);
-    if(na===null && nb===null) return 0;
-    if(na===null) return 1;
-    if(nb===null) return -1;
-    return na-nb;
+    if(na===null&&nb===null) return 0; if(na===null) return 1; if(nb===null) return -1; return na-nb;
   });
 }
 
@@ -261,72 +317,121 @@ function liveBadge(tcin){
   if(!l) return `<span class="badge b-mon">監視: 未取得</span>`;
   if(l.loading) return `<span class="badge b-mon"><span class="spin"></span> 監視中</span>`;
   if(l.status==="live") return `<span class="badge b-live">🟢 Target 発売中${l.price?" "+esc(l.price):""}</span>`;
-  if(l.status==="scheduled") return `<span class="badge b-soon">🗓 発売日 ${esc(l.streetDate)}</span>`;
+  if(l.status==="scheduled") return `<span class="badge b-soon">🗓 発売日 ${esc(fmtDate(l.streetDate))}</span>`;
   if(l.status==="listed") return `<span class="badge b-soon">🟡 Target 登録済(未発売)</span>`;
   if(l.status==="notfound") return `<span class="badge b-mon">⚪ Target 未登録</span>`;
   if(l.status==="error") return `<span class="badge b-mon" title="${esc(l.hint||"")}">⚠ 監視不可</span>`;
   return "";
 }
+const retailerName = r => r==="walgreens"?"Walgreens":(r||"").replace(/^./,c=>c.toUpperCase());
 
 function cardHTML(d){
   const cd = countdownLabel(d.date);
   const conf = d.confidence||"rumored";
+  const hot = bucketOf(d.date)==="today" || bucketOf(d.date)==="week";
   const img = d.image ? `style="background-image:url('${esc(d.image)}')"` : "";
   const emoji = d.image ? "" : "🧸";
   const buy = d.tcin ? `https://www.target.com/p/-/A-${esc(d.tcin)}`
             : (d.retailer==="target" ? "https://www.target.com/s?searchTerm=squishmallow"
             : d.retailer==="walmart" ? "https://www.walmart.com/search?q=squishmallow"
             : "https://www.walgreens.com/search/results.jsp?Ntt=squishmallow");
-  const dateTxt = d.date ? d.date : "日付未定";
-  return `<div class="card">
+  return `<div class="card ${hot?"hot":""}">
     <div class="top">
       <div class="thumb" ${img}>${emoji}</div>
       <div>
         <h3>${esc(d.name||"(名称未設定)")}</h3>
-        <div class="meta">${esc(dateTxt)}${d.size?" ・ "+esc(d.size):""}${d.price?" ・ "+esc(d.price):""}</div>
+        <div class="whenline">🗓 ${esc(fmtDate(d.date))}</div>
         <div class="cd ${cd.past?"past":""}">⏳ ${esc(cd.txt)}</div>
+        <div class="meta">${d.size?esc(d.size):""}${d.size&&d.price?" ・ ":""}${d.price?esc(d.price):""}</div>
       </div>
     </div>
     <div class="badges">
-      <span class="badge b-${esc(d.retailer)}">${d.retailer==="walgreens"?"Walgreens":esc((d.retailer||"").replace(/^./,c=>c.toUpperCase()))}</span>
+      <span class="badge b-${esc(d.retailer)}">${esc(retailerName(d.retailer))}</span>
       <span class="badge b-${esc(conf)}">${({confirmed:"確定",rumored:"リーク",window:"時期のみ",sample:"サンプル"})[conf]||esc(conf)}</span>
       ${d._src==="user"?'<span class="badge b-user">自分の追加</span>':""}
       ${liveBadge(d.tcin)}
     </div>
     <div class="foot">
       <a class="lnk" href="${esc(buy)}" target="_blank" rel="noopener">店舗ページ →</a>
-      ${d.notes?`<span class="meta" title="${esc(d.notes)}" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.notes)}</span>`:""}
       ${d._src==="user"?`<button class="del" data-del="${esc(d.id)}">削除</button>`:""}
     </div>
   </div>`;
 }
 
+function renderNext(){
+  const upcoming = allDrops().filter(d=>{const n=daysUntil(d.date);return n!==null&&n>=0;})
+    .sort((a,b)=>daysUntil(a.date)-daysUntil(b.date));
+  const hero = $("#nextHero");
+  if(!upcoming.length){ hero.classList.remove("show"); hero.innerHTML=""; return; }
+  const d = upcoming[0]; const n = daysUntil(d.date);
+  const big = n===0?"今日":(n===1?"明日":n);
+  const unit = n<=1?"":"日後";
+  const buy = d.tcin?`https://www.target.com/p/-/A-${esc(d.tcin)}`
+    : (d.retailer==="walmart"?"https://www.walmart.com/search?q=squishmallow"
+    : d.retailer==="walgreens"?"https://www.walgreens.com/search/results.jsp?Ntt=squishmallow"
+    : "https://www.target.com/s?searchTerm=squishmallow");
+  hero.innerHTML = `
+    <div><div class="lbl">次のドロップまで</div><div class="big">${esc(big)}<span style="font-size:16px;font-weight:700"> ${unit}</span></div></div>
+    <div>
+      <div class="name">${esc(d.name||"(名称未設定)")}</div>
+      <div class="sub">${esc(retailerName(d.retailer))} ・ 🗓 ${esc(fmtDate(d.date))}${d.price?" ・ "+esc(d.price):""}</div>
+    </div>
+    <a class="cta" href="${buy}" target="_blank" rel="noopener">店舗で見る →</a>`;
+  hero.classList.add("show");
+}
+
 function render(){
   const list = filtered();
-  $("#calCards").innerHTML = list.map(cardHTML).join("");
+  // group by time bucket
+  const groups = {};
+  list.forEach(d=>{ const b=bucketOf(d.date); (groups[b]=groups[b]||[]).push(d); });
+  let html="";
+  BUCKETS.forEach(({k,t})=>{
+    const arr = groups[k]; if(!arr||!arr.length) return;
+    html += `<div class="group"><h3>${t}</h3><span class="ct">${arr.length}件</span><span class="ln"></span></div>
+      <div class="cards">${arr.map(cardHTML).join("")}</div>`;
+  });
+  $("#calGroups").innerHTML = html;
   $("#calCount").textContent = list.length+" 件";
   $("#calEmpty").style.display = list.length?"none":"block";
-  // stats
+
   const all = allDrops();
   $("#stTotal").textContent = all.length;
   $("#stSoon").textContent = all.filter(d=>{const n=daysUntil(d.date);return n!==null&&n>=0&&n<=7;}).length;
   $("#stLive").textContent = Object.values(state.live).filter(l=>l&&l.status==="live").length;
   const known = new Set(all.map(d=>String(d.tcin||"")).filter(Boolean));
   $("#stNew").textContent = state.scan.filter(x=>!known.has(String(x.tcin))).length;
-  // wire deletes
-  $("#calCards").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+
+  renderNext();
+  $("#calGroups").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
     state.user = state.user.filter(u=>u.id!==b.dataset.del); saveUser(); render();
   });
+}
+
+// ---- 店舗解決（ZIP → 最寄り Target）----
+function zipParam(){ return state.zip?`&zip=${encodeURIComponent(state.zip)}`:""; }
+async function resolveStore(){
+  if(!/^\d{5}$/.test(state.zip)){ $("#storeInfo").innerHTML=`<span class="muted">5桁のZIPを入力してください。</span>`; return; }
+  $("#storeInfo").innerHTML = `<span class="spin"></span> <span class="muted">最寄り店舗を検索中…</span>`;
+  try{
+    const r = await fetch(`/api/target-check?mode=stores&zip=${encodeURIComponent(state.zip)}`);
+    if(!r.ok){ const j=await r.json().catch(()=>({})); $("#storeInfo").innerHTML=`<span class="muted">店舗取得不可: ${esc(j.hint||("HTTP "+r.status))}</span>`; return; }
+    const j = await r.json(); state.apiOk=true; hideBanner();
+    const s = (j.stores||[])[0];
+    if(!s){ $("#storeInfo").innerHTML=`<span class="muted">この ZIP 付近に店舗が見つかりません。</span>`; state.store=null; return; }
+    state.store = s;
+    $("#storeInfo").innerHTML = `<span class="store">監視店舗: <b>${esc(s.name||("Store "+s.id))}</b>${s.city?"（"+esc(s.city)+(s.state?", "+esc(s.state):"")+"）":""}${s.distance!=null?" ・ "+esc(s.distance)+"mi":""}</span>`;
+    refreshLive();
+  }catch(e){ $("#storeInfo").innerHTML=`<span class="muted">この環境では店舗APIに接続できません（Vercel上で有効）。</span>`; }
 }
 
 // ---- Target 自動監視 ----
 async function checkTcin(tcin){
   state.live[tcin] = {loading:true}; render();
   try{
-    const r = await fetch(`/api/target-check?tcin=${encodeURIComponent(tcin)}`);
+    const r = await fetch(`/api/target-check?tcin=${encodeURIComponent(tcin)}${zipParam()}`);
     if(!r.ok){ const j=await r.json().catch(()=>({})); state.live[tcin]={status:"error",hint:j.hint||("HTTP "+r.status)}; state.apiOk=false; render(); return; }
-    const j = await r.json();
-    state.apiOk = true;
+    const j = await r.json(); state.apiOk = true;
     const p = j.product;
     if(!p || !p.tcin){ state.live[tcin]={status:"notfound"}; render(); return; }
     const n = daysUntil(p.streetDate);
@@ -339,8 +444,7 @@ async function checkTcin(tcin){
   }catch(e){ state.live[tcin]={status:"error",hint:String(e.message||e)}; state.apiOk=false; render(); }
 }
 function hasStock(sig){
-  if(!sig) return false;
-  const s = JSON.stringify(sig).toLowerCase();
+  if(!sig) return false; const s = JSON.stringify(sig).toLowerCase();
   if(s.includes("out_of_stock")&&s.includes("true")) return false;
   return s.includes("available")||s.includes("in_stock")||s.includes("onhand");
 }
@@ -350,10 +454,9 @@ function refreshLive(){
   tcins.forEach(checkTcin);
 }
 
-// ローカル(:3000)では /api が動かないので一度だけ疎通確認してバナー表示
 async function probeApi(){
   try{
-    const r = await fetch(`/api/target-check?keyword=${KW}&count=1`);
+    const r = await fetch(`/api/target-check?keyword=${KW}&count=1${zipParam()}`);
     if(r.ok){ state.apiOk=true; hideBanner(); }
     else { const j=await r.json().catch(()=>({})); state.apiOk=false; showBanner(j.hint||("Target API 応答: HTTP "+r.status)); }
   }catch(e){ state.apiOk=false; showBanner("ローカル/静的環境では Target 自動監視は動きません。Vercel にデプロイ（または <code>vercel dev</code>）すると有効になります。"); }
@@ -361,35 +464,40 @@ async function probeApi(){
 function showBanner(msg){ const b=$("#apiBanner"); b.innerHTML=`<b>ⓘ 自動監視について：</b> ${msg}`; b.classList.add("show"); }
 function hideBanner(){ $("#apiBanner").classList.remove("show"); }
 
-// ---- 早期検知スキャン ----
+// ---- 早期検知スキャン（発売日順）----
 async function scan(){
-  $("#scanHint").innerHTML = `<span class="spin"></span> Target を検索中…`;
-  $("#scanHint").style.display="block";
+  $("#scanHint").innerHTML = `<span class="spin"></span> Target を検索中…`; $("#scanHint").style.display="block";
   try{
-    const r = await fetch(`/api/target-check?keyword=${KW}&count=36`);
+    const r = await fetch(`/api/target-check?keyword=${KW}&count=36${zipParam()}`);
     if(!r.ok){ const j=await r.json().catch(()=>({})); $("#scanHint").innerHTML=`⚠ 取得失敗: ${esc(j.hint||("HTTP "+r.status))}`; state.apiOk=false; return; }
-    const j = await r.json();
-    state.apiOk = true; hideBanner();
-    state.scan = j.items||[];
-    renderScan();
-  }catch(e){
-    $("#scanHint").innerHTML = `⚠ この環境では Target API に接続できません（Vercel デプロイ後に有効）。`;
-  }
+    const j = await r.json(); state.apiOk = true; hideBanner();
+    state.scan = j.items||[]; renderScan();
+  }catch(e){ $("#scanHint").innerHTML = `⚠ この環境では Target API に接続できません（Vercel デプロイ後に有効）。`; }
 }
+function scanSortKey(it){ const n=daysUntil(it.streetDate); return n===null?99999:(n<0?90000-n:n); }
 function renderScan(){
   const known = new Set(allDrops().map(d=>String(d.tcin||"")).filter(Boolean));
-  const items = state.scan.slice().sort((a,b)=>(!!known.has(String(a.tcin)))-(!!known.has(String(b.tcin))));
+  const items = state.scan.slice().sort((a,b)=>{
+    const na=!known.has(String(a.tcin)), nb=!known.has(String(b.tcin));
+    if(na!==nb) return na?-1:1;               // 未登録(新候補)を先に
+    return scanSortKey(a)-scanSortKey(b);     // 発売日が近い順
+  });
   if(!items.length){ $("#scanHint").innerHTML="該当なし。"; $("#scanCards").innerHTML=""; render(); return; }
   $("#scanHint").style.display="none";
   $("#scanCards").innerHTML = items.map(it=>{
     const isNew = !known.has(String(it.tcin));
     const img = it.image?`style="background-image:url('${esc(it.image)}')"`:"";
-    return `<div class="card">
+    const n = daysUntil(it.streetDate);
+    const when = it.streetDate
+      ? `<div class="whenline">🗓 発売予定 ${esc(fmtDate(it.streetDate))}</div><div class="cd">⏳ ${esc(countdownLabel(it.streetDate).txt)}</div>`
+      : `<div class="meta">発売日: 商品DBに未記載（登録のみ）</div>`;
+    return `<div class="card ${it.streetDate&&n>=0&&n<=7?"hot":""}">
       <div class="top">
         <div class="thumb" ${img}>${it.image?"":"🧸"}</div>
         <div>
           <h3>${esc(it.title||("TCIN "+it.tcin))}</h3>
-          <div class="meta">TCIN ${esc(it.tcin)}${it.price?" ・ "+esc(it.price):""}${it.streetDate?" ・ 発売 "+esc(it.streetDate):""}</div>
+          ${when}
+          <div class="meta">TCIN ${esc(it.tcin)}${it.price?" ・ "+esc(it.price):""}</div>
         </div>
       </div>
       <div class="badges">
@@ -419,6 +527,8 @@ $("#statusChips").onclick = e=>{ const b=e.target.closest(".chip"); if(!b)return
   state.status=b.dataset.s; [...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b)); render(); };
 $("#refreshBtn").onclick = refreshLive;
 $("#scanBtn").onclick = scan;
+$("#zipBtn").onclick = ()=>{ state.zip=$("#zip").value.trim(); localStorage.setItem(LS_ZIP,state.zip); resolveStore(); };
+$("#zip").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#zipBtn").click(); });
 $("#addBtn").onclick = ()=>{
   const name=$("#f_name").value.trim(); if(!name){ $("#f_name").focus(); return; }
   const extra=$("#f_extra").value.trim();
@@ -427,20 +537,22 @@ $("#addBtn").onclick = ()=>{
     date:$("#f_date").value||"", confidence:$("#f_conf").value, tcin:$("#f_tcin").value.trim(),
     price:m[1]||extra, size:m[2]||"", notes:$("#f_notes").value.trim() });
   saveUser();
+  const tc=$("#f_tcin").value.trim();
   ["f_name","f_date","f_tcin","f_extra","f_notes"].forEach(id=>$("#"+id).value="");
-  if($("#f_tcin").value) {} render();
-  const last = state.user[state.user.length-1]; if(last.tcin) checkTcin(last.tcin);
+  render(); if(tc) checkTcin(tc);
 };
 $("#clearUserBtn").onclick = ()=>{ if(confirm("この端末に追加したドロップを全て削除しますか？")){ state.user=[]; saveUser(); render(); } };
 let timer=null;
-$("#autoChk").onchange = e=>{ if(e.target.checked){ timer=setInterval(()=>{ refreshLive(); },600000); } else { clearInterval(timer); } };
+$("#autoChk").onchange = e=>{ if(e.target.checked){ timer=setInterval(refreshLive,600000); } else { clearInterval(timer); } };
 
 // ---- init ----
 (async ()=>{
+  state.zip = localStorage.getItem(LS_ZIP) || "94022";
+  $("#zip").value = state.zip;
   await loadJSON();
   render();
   await probeApi();
-  if(state.apiOk) refreshLive();
+  if(state.apiOk){ resolveStore(); refreshLive(); }
 })();
 </script>
 </body>
