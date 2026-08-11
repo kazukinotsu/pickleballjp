@@ -7,7 +7,7 @@
 // 使い方 (フロントの drops.html が呼ぶ):
 //   GET /api/target-check?mode=stores&zip=94022  … ZIPから最寄り Target 店舗を解決
 //   GET /api/target-check?tcin=12345678&zip=94022 … 特定商品の発売状況(店舗基準)
-//   GET /api/target-check?keyword=squishmallow&zip=94022&count=24
+//   GET /api/target-check?keyword=squeezy+toy&zip=94022&count=24
 //                                            … キーワード検索で「今 Target に
 //                                              登録されている商品」を一覧取得。
 //                                              カレンダー未登録の新SKU＝未告知

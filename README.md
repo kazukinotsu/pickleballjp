@@ -143,15 +143,15 @@ picklejp-app/
 
 ---
 
-## Squishmallow Drop Radar（`/drops`）
+## Squeezy Drop Radar（`/drops`）
 
-Squishmallow の新作・限定ドロップを **Target / Walmart / Walgreens** の3店について「事前に把握」するツール。ピックルボール本体とは独立した追加ページで、同じ Vercel でそのまま配信されます。
+Squeezy（squeezy toy）の新作・限定ドロップを **Target / Walmart / Walgreens** の3店について「事前に把握」するツール。ピックルボール本体とは独立した追加ページで、同じ Vercel でそのまま配信されます。検索キーワードは `drops.html` の `KW` 定数（現在 `"squeezy toy"`）を変えれば全体に反映されます。
 
 - **ページ**: [`drops.html`](./drops.html) → 本番では `/drops`（`vercel.json` の cleanUrls）
 - **カレンダーデータ**: [`drops-data.json`](./drops-data.json) — 今後のドロップ予定（スクワッド名・予定日・確度・TCIN）。`confidence: "sample"` の行は構造を示すダミーなので、リーク/コレクター情報で差し替えて運用します。
 - **Target 自動監視（サーバー関数）**: [`api/target-check.js`](./api/target-check.js) — Target が内部利用する公開商品API **Redsky** をサーバー側から叩き、CORS を回避して以下を取得：
   - `?tcin=…` … 特定商品の発売日(street date)・購入可否・在庫シグナル
-  - `?keyword=squishmallow` … いま Target に登録済みの SKU 一覧 → カレンダー未登録＝**未告知ドロップの早期検知**
+  - `?keyword=squeezy+toy` … いま Target に登録済みの SKU 一覧 → カレンダー未登録＝**未告知ドロップの早期検知**
 
 ### なぜ「事前に分かる」のか
 小売の商品DBには、一般販売が始まる前に SKU（Target なら TCIN）と発売日が登録されます。Redsky はその情報を露出するため、棚に並ぶ前・購入可能になる前に検知できます。Walmart / Walgreens は bot 対策が強く安定監視が難しいため、現状はカレンダー管理（手動・コミュニティ更新）です。

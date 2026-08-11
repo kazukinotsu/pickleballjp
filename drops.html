@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Squishmallow Drop Radar / ドロップ事前予測（Target・Walmart・Walgreens）</title>
-<meta name="description" content="Squishmallow の新作・限定ドロップを Target / Walmart / Walgreens の3店で事前に把握。ZIPを入れると最寄り店舗基準で、いつ・何がドロップされるかを明確化します。" />
+<title>Squeezy Drop Radar / ドロップ事前予測（Target・Walmart・Walgreens）</title>
+<meta name="description" content="Squeezy (squeezy toy) の新作・限定ドロップを Target / Walmart / Walgreens の3店で事前に把握。ZIPを入れると最寄り店舗基準で、いつ・何がドロップされるかを明確化します。" />
 <meta name="robots" content="noindex" />
 <style>
   :root{
@@ -152,7 +152,7 @@
   <header class="hero">
     <div class="logo">
       <div class="mallow" aria-hidden="true"></div>
-      <div class="brand">Squishmallow Drop Radar
+      <div class="brand">Squeezy Drop Radar
         <small>いつ・何がドロップされるか、最寄り店舗基準で先読み</small>
       </div>
     </div>
@@ -226,7 +226,7 @@
   <section class="block">
     <h2>🛰️ Target 早期検知 <span class="pill">未告知SKU＝これからドロップの可能性。発売日順に表示</span></h2>
     <div class="cards" id="scanCards"></div>
-    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、いま Target の商品DBに載っている Squishmallow を取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します。</p>
+    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、いま Target の商品DBに載っている squeezy toy を取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します。</p>
   </section>
 
   <footer>
@@ -238,7 +238,7 @@
 </div>
 
 <script>
-const KW = "squishmallow";
+const KW = "squeezy toy";
 const LS_USER = "sqdrops_user_v1";
 const LS_ZIP = "sqdrops_zip_v1";
 const state = { data:[], user:[], retailer:"all", status:"all", live:{}, scan:[], apiOk:null, zip:"", store:null };
@@ -332,9 +332,9 @@ function cardHTML(d){
   const img = d.image ? `style="background-image:url('${esc(d.image)}')"` : "";
   const emoji = d.image ? "" : "🧸";
   const buy = d.tcin ? `https://www.target.com/p/-/A-${esc(d.tcin)}`
-            : (d.retailer==="target" ? "https://www.target.com/s?searchTerm=squishmallow"
-            : d.retailer==="walmart" ? "https://www.walmart.com/search?q=squishmallow"
-            : "https://www.walgreens.com/search/results.jsp?Ntt=squishmallow");
+            : (d.retailer==="target" ? "https://www.target.com/s/squeezy+toy"
+            : d.retailer==="walmart" ? "https://www.walmart.com/search?q=squeezy+toy"
+            : "https://www.walgreens.com/search/results.jsp?Ntt=squeezy+toy");
   return `<div class="card ${hot?"hot":""}">
     <div class="top">
       <div class="thumb" ${img}>${emoji}</div>
@@ -367,9 +367,9 @@ function renderNext(){
   const big = n===0?"今日":(n===1?"明日":n);
   const unit = n<=1?"":"日後";
   const buy = d.tcin?`https://www.target.com/p/-/A-${esc(d.tcin)}`
-    : (d.retailer==="walmart"?"https://www.walmart.com/search?q=squishmallow"
-    : d.retailer==="walgreens"?"https://www.walgreens.com/search/results.jsp?Ntt=squishmallow"
-    : "https://www.target.com/s?searchTerm=squishmallow");
+    : (d.retailer==="walmart"?"https://www.walmart.com/search?q=squeezy+toy"
+    : d.retailer==="walgreens"?"https://www.walgreens.com/search/results.jsp?Ntt=squeezy+toy"
+    : "https://www.target.com/s/squeezy+toy");
   hero.innerHTML = `
     <div><div class="lbl">次のドロップまで</div><div class="big">${esc(big)}<span style="font-size:16px;font-weight:700"> ${unit}</span></div></div>
     <div>
@@ -456,7 +456,7 @@ function refreshLive(){
 
 async function probeApi(){
   try{
-    const r = await fetch(`/api/target-check?keyword=${KW}&count=1${zipParam()}`);
+    const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(KW)}&count=1${zipParam()}`);
     if(r.ok){ state.apiOk=true; hideBanner(); }
     else { const j=await r.json().catch(()=>({})); state.apiOk=false; showBanner(j.hint||("Target API 応答: HTTP "+r.status)); }
   }catch(e){ state.apiOk=false; showBanner("ローカル/静的環境では Target 自動監視は動きません。Vercel にデプロイ（または <code>vercel dev</code>）すると有効になります。"); }
@@ -468,7 +468,7 @@ function hideBanner(){ $("#apiBanner").classList.remove("show"); }
 async function scan(){
   $("#scanHint").innerHTML = `<span class="spin"></span> Target を検索中…`; $("#scanHint").style.display="block";
   try{
-    const r = await fetch(`/api/target-check?keyword=${KW}&count=36${zipParam()}`);
+    const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(KW)}&count=36${zipParam()}`);
     if(!r.ok){ const j=await r.json().catch(()=>({})); $("#scanHint").innerHTML=`⚠ 取得失敗: ${esc(j.hint||("HTTP "+r.status))}`; state.apiOk=false; return; }
     const j = await r.json(); state.apiOk = true; hideBanner();
     state.scan = j.items||[]; renderScan();
