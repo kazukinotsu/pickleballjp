@@ -10,7 +10,7 @@
   "drops": [
     {
       "id": "tgt-sample-1",
-      "name": "スクワッド例 / Squishmallow 8\" Squad（差し替え用サンプル）",
+      "name": "商品例 / Squeezy Toy A（差し替え用サンプル）",
       "retailer": "target",
       "date": "2026-08-20",
       "confidence": "sample",
@@ -18,13 +18,13 @@
       "sku": "",
       "size": "8in",
       "price": "$14.99",
-      "notes": "Target の TCIN を入れると自動監視が有効化されます。/api/target-check?keyword=squishmallow で見つけた TCIN をここに貼るのが早いです。",
+      "notes": "Target の TCIN を入れると自動監視が有効化されます。/api/target-check?keyword=squeezy+toy で見つけた TCIN をここに貼るのが早いです。",
       "source": "",
       "image": ""
     },
     {
       "id": "wmt-sample-1",
-      "name": "スクワッド例 / Squishmallow 5\" Mystery Squad（差し替え用サンプル）",
+      "name": "商品例 / Squeezy Toy B（差し替え用サンプル）",
       "retailer": "walmart",
       "date": "2026-08-27",
       "confidence": "sample",
@@ -38,7 +38,7 @@
     },
     {
       "id": "wba-sample-1",
-      "name": "スクワッド例 / Walgreens 限定スクワッド（差し替え用サンプル）",
+      "name": "商品例 / Walgreens 限定 Squeezy Toy（差し替え用サンプル）",
       "retailer": "walgreens",
       "date": "",
       "confidence": "window",
