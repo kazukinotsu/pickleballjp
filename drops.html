@@ -485,7 +485,7 @@ async function scan(){
       try{
         const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(b.kw)}&count=24${zipParam()}`);
         if(!r.ok){ const j=await r.json().catch(()=>({})); return {b, err:j.hint||("HTTP "+r.status)}; }
-        const j = await r.json(); return {b, items:j.items||[]};
+        const j = await r.json(); return {b, items:j.items||[], diag:j.diag||null};
       }catch(e){ return {b, err:String(e.message||e)}; }
     }));
     const errs = results.filter(x=>x.err);
@@ -497,8 +497,22 @@ async function scan(){
       const k = String(it.tcin); if(seen.has(k)) return; seen.add(k);
       merged.push({...it, brand:x.b.label});
     }));
-    state.scan = merged; renderScan();
-    if(errs.length){ showBanner(`一部ブランドの取得に失敗: ${errs.map(x=>esc(x.b.label)).join("・")}（他は表示中）`); }
+    state.scan = merged;
+    if(!merged.length){
+      // 5ブランド全部0件は異常（NeeDoh等はTarget定番）。理由と診断リンクを出す。
+      const diag = results.map(x=>x.err
+        ? `${x.b.label}: ⚠ ${x.err}`
+        : `${x.b.label}: 0件 (Redsky ${x.diag&&x.diag.redskyStatus!=null?x.diag.redskyStatus:"?"}${x.diag&&x.diag.searchKeys&&x.diag.searchKeys.length?" / keys: "+x.diag.searchKeys.join(","):""})`
+      ).join("<br>");
+      $("#scanHint").style.display="block";
+      $("#scanHint").innerHTML = `該当なし — 全ブランド0件のため異常の可能性が高いです。<br>
+        <span style="font-size:11px;text-align:left;display:inline-block;margin-top:6px">${diag}</span><br>
+        <a href="/api/target-check?keyword=needoh&debug=1${zipParam()}" target="_blank" rel="noopener">🔧 診断情報（Redsky生応答）を開く →</a>`;
+      $("#scanCards").innerHTML=""; render();
+    } else {
+      renderScan();
+      if(errs.length){ showBanner(`一部ブランドの取得に失敗: ${errs.map(x=>esc(x.b.label)).join("・")}（他は表示中）`); }
+    }
   }catch(e){ $("#scanHint").innerHTML = `⚠ この環境では Target API に接続できません（Vercel デプロイ後に有効）。`; }
 }
 function scanSortKey(it){ const n=daysUntil(it.streetDate); return n===null?99999:(n<0?90000-n:n); }

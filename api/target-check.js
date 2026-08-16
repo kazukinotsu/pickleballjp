@@ -61,7 +61,22 @@ async function redsky(endpoint, params) {
   const text = await r.text();
   let json = null;
   try { json = JSON.parse(text); } catch (_) {}
-  return { ok: r.ok, status: r.status, json };
+  return { ok: r.ok, status: r.status, json, raw: text };
+}
+
+// Redsky の応答が実質エラーなら人間可読な理由を返す（正常なら null）。
+// 200 以外の JSON エラーや、JSON ですらない応答（bot対策のHTML等）を検出する。
+function redskyError(r) {
+  if (!r.json) return `Redsky が JSON を返しません (HTTP ${r.status})`;
+  if (!r.ok) {
+    const msg =
+      r.json.message ||
+      (Array.isArray(r.json.errors)
+        ? r.json.errors.map((e) => (e && e.message) || e).join("; ")
+        : "");
+    return `Redsky エラー HTTP ${r.status}${msg ? ": " + msg : ""}`;
+  }
+  return null;
 }
 
 // ZIP → 最寄り店舗のリストを解決
@@ -152,6 +167,10 @@ module.exports = async (req, res) => {
   const keyword = (q.keyword || "").toString().trim();
   const zip = (q.zip || "").toString().trim();
   const count = Math.min(parseInt(q.count, 10) || 24, 48);
+  const debug = q.debug === "1" || q.debug === "true";
+  // debug=1: Redsky の生応答の先頭を返す（原因調査用。キーは伏せる）
+  const rawSnippet = (r) =>
+    debug ? { raw: String(r.raw || "").slice(0, 1200) } : {};
 
   try {
     // --- 店舗解決モード: ZIP → 最寄り店舗 ---
@@ -174,13 +193,17 @@ module.exports = async (req, res) => {
         store_id: storeId, pricing_store_id: storeId, has_pricing_store_id: "true",
         channel: "WEB", page: `/p/A-${tcin}`,
       });
-      if (!r.json) {
-        return res.status(502).json({ error: "redsky_unavailable", status: r.status,
-          hint: "Redsky が JSON を返しませんでした。公開キー失効の可能性。Vercel の TARGET_REDSKY_KEY を更新してください。" });
+      const err = redskyError(r);
+      if (err) {
+        return res.status(502).json({ error: "redsky_error", status: r.status,
+          hint: err + "。公開キー失効の可能性 → Vercel の環境変数 TARGET_REDSKY_KEY を最新キーに更新してください。",
+          ...rawSnippet(r) });
       }
       return res.status(200).json({
         mode: "tcin", tcin, store,
         product: normalizeProduct(pick(r.json, "data.product")),
+        diag: { redskyStatus: r.status, hasData: !!pick(r.json, "data") },
+        ...rawSnippet(r),
         checkedAt: new Date().toISOString(),
       });
     }
@@ -191,19 +214,27 @@ module.exports = async (req, res) => {
         keyword, channel: "WEB", count: String(count), offset: "0",
         page: `/s/${keyword}`, platform: "desktop",
         pricing_store_id: storeId, store_ids: storeId,
-        visitor_id: "0000000000000000000000000000AAAA", zip,
+        visitor_id: "018F6E2A9C3B0201B12CBDDE38A0AB4D", zip,
       });
-      if (!r.json) {
-        return res.status(502).json({ error: "redsky_unavailable", status: r.status,
-          hint: "Redsky が JSON を返しませんでした。公開キー失効か bot 対策の可能性。TARGET_REDSKY_KEY を更新するか時間を置いて再試行してください。" });
+      const err = redskyError(r);
+      if (err) {
+        return res.status(502).json({ error: "redsky_error", status: r.status,
+          hint: err + "。公開キー失効か bot 対策の可能性 → Vercel の環境変数 TARGET_REDSKY_KEY を最新キーに更新してください。",
+          ...rawSnippet(r) });
       }
       const products =
         pick(r.json, "data.search.products") ||
         pick(r.json, "data.search.search_response.items.Item") || [];
       const items = (Array.isArray(products) ? products : [])
         .map(normalizeSearchItem).filter((x) => x.tcin);
+      // 200 なのに 0 件のときは、構造が想定と違う可能性があるので診断情報を必ず添える
+      const dataKeys = r.json && r.json.data ? Object.keys(r.json.data) : [];
+      const searchKeys = pick(r.json, "data.search")
+        ? Object.keys(r.json.data.search) : [];
       return res.status(200).json({
         mode: "keyword", keyword, store, count: items.length, items,
+        diag: { redskyStatus: r.status, dataKeys, searchKeys },
+        ...(items.length === 0 ? { raw: String(r.raw || "").slice(0, 800) } : rawSnippet(r)),
         checkedAt: new Date().toISOString(),
       });
     }
