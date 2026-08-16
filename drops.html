@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Squeezy Drop Radar / ドロップ事前予測（Target・Walmart・Walgreens）</title>
-<meta name="description" content="Squeezy (squeezy toy) の新作・限定ドロップを Target / Walmart / Walgreens の3店で事前に把握。ZIPを入れると最寄り店舗基準で、いつ・何がドロップされるかを明確化します。" />
+<meta name="description" content="Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の新作・限定ドロップを Target / Walmart / Walgreens の3店で事前に把握。ZIPを入れると最寄り店舗基準で、いつ・何がドロップされるかを明確化します。" />
 <meta name="robots" content="noindex" />
 <style>
   :root{
@@ -153,7 +153,7 @@
     <div class="logo">
       <div class="mallow" aria-hidden="true"></div>
       <div class="brand">Squeezy Drop Radar
-        <small>いつ・何がドロップされるか、最寄り店舗基準で先読み</small>
+        <small>Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings を最寄り店舗基準で先読み</small>
       </div>
     </div>
     <a class="backlink" href="/">← Picklejp Map</a>
@@ -226,7 +226,7 @@
   <section class="block">
     <h2>🛰️ Target 早期検知 <span class="pill">未告知SKU＝これからドロップの可能性。発売日順に表示</span></h2>
     <div class="cards" id="scanCards"></div>
-    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、いま Target の商品DBに載っている squeezy toy を取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します。</p>
+    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の5ブランドを Target の商品DBから一括取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します。</p>
   </section>
 
   <footer>
@@ -238,7 +238,20 @@
 </div>
 
 <script>
-const KW = "squeezy toy";
+// 追跡ブランド。kw が Target 検索キーワード。ここに足せば全体に反映される。
+const BRANDS = [
+  {key:"squeezy",   label:"Squeezy",       kw:"squeezy toy"},
+  {key:"needoh",    label:"NeeDoh",        kw:"needoh"},
+  {key:"smushmart", label:"Smushmart",     kw:"smushmart"},
+  {key:"smusher",   label:"Smusher",       kw:"smusher"},
+  {key:"rms",       label:"RMS Dumplings", kw:"rms dumplings"},
+];
+function searchUrl(retailer, kw){
+  const q = encodeURIComponent(kw||BRANDS[0].kw).replace(/%20/g,"+");
+  return retailer==="walmart" ? `https://www.walmart.com/search?q=${q}`
+    : retailer==="walgreens" ? `https://www.walgreens.com/search/results.jsp?Ntt=${q}`
+    : `https://www.target.com/s/${q}`;
+}
 const LS_USER = "sqdrops_user_v1";
 const LS_ZIP = "sqdrops_zip_v1";
 const state = { data:[], user:[], retailer:"all", status:"all", live:{}, scan:[], apiOk:null, zip:"", store:null };
@@ -332,9 +345,7 @@ function cardHTML(d){
   const img = d.image ? `style="background-image:url('${esc(d.image)}')"` : "";
   const emoji = d.image ? "" : "🧸";
   const buy = d.tcin ? `https://www.target.com/p/-/A-${esc(d.tcin)}`
-            : (d.retailer==="target" ? "https://www.target.com/s/squeezy+toy"
-            : d.retailer==="walmart" ? "https://www.walmart.com/search?q=squeezy+toy"
-            : "https://www.walgreens.com/search/results.jsp?Ntt=squeezy+toy");
+            : searchUrl(d.retailer, d.brand||d.kw);
   return `<div class="card ${hot?"hot":""}">
     <div class="top">
       <div class="thumb" ${img}>${emoji}</div>
@@ -347,6 +358,7 @@ function cardHTML(d){
     </div>
     <div class="badges">
       <span class="badge b-${esc(d.retailer)}">${esc(retailerName(d.retailer))}</span>
+      ${d.brand?`<span class="badge b-window">${esc(d.brand)}</span>`:""}
       <span class="badge b-${esc(conf)}">${({confirmed:"確定",rumored:"リーク",window:"時期のみ",sample:"サンプル"})[conf]||esc(conf)}</span>
       ${d._src==="user"?'<span class="badge b-user">自分の追加</span>':""}
       ${liveBadge(d.tcin)}
@@ -367,9 +379,7 @@ function renderNext(){
   const big = n===0?"今日":(n===1?"明日":n);
   const unit = n<=1?"":"日後";
   const buy = d.tcin?`https://www.target.com/p/-/A-${esc(d.tcin)}`
-    : (d.retailer==="walmart"?"https://www.walmart.com/search?q=squeezy+toy"
-    : d.retailer==="walgreens"?"https://www.walgreens.com/search/results.jsp?Ntt=squeezy+toy"
-    : "https://www.target.com/s/squeezy+toy");
+    : searchUrl(d.retailer, d.brand||d.kw);
   hero.innerHTML = `
     <div><div class="lbl">次のドロップまで</div><div class="big">${esc(big)}<span style="font-size:16px;font-weight:700"> ${unit}</span></div></div>
     <div>
@@ -456,7 +466,7 @@ function refreshLive(){
 
 async function probeApi(){
   try{
-    const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(KW)}&count=1${zipParam()}`);
+    const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(BRANDS[0].kw)}&count=1${zipParam()}`);
     if(r.ok){ state.apiOk=true; hideBanner(); }
     else { const j=await r.json().catch(()=>({})); state.apiOk=false; showBanner(j.hint||("Target API 応答: HTTP "+r.status)); }
   }catch(e){ state.apiOk=false; showBanner("ローカル/静的環境では Target 自動監視は動きません。Vercel にデプロイ（または <code>vercel dev</code>）すると有効になります。"); }
@@ -466,12 +476,26 @@ function hideBanner(){ $("#apiBanner").classList.remove("show"); }
 
 // ---- 早期検知スキャン（発売日順）----
 async function scan(){
-  $("#scanHint").innerHTML = `<span class="spin"></span> Target を検索中…`; $("#scanHint").style.display="block";
+  $("#scanHint").innerHTML = `<span class="spin"></span> Target を検索中…（${BRANDS.length}ブランド一括）`; $("#scanHint").style.display="block";
   try{
-    const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(KW)}&count=36${zipParam()}`);
-    if(!r.ok){ const j=await r.json().catch(()=>({})); $("#scanHint").innerHTML=`⚠ 取得失敗: ${esc(j.hint||("HTTP "+r.status))}`; state.apiOk=false; return; }
-    const j = await r.json(); state.apiOk = true; hideBanner();
-    state.scan = j.items||[]; renderScan();
+    const results = await Promise.all(BRANDS.map(async b=>{
+      try{
+        const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(b.kw)}&count=24${zipParam()}`);
+        if(!r.ok){ const j=await r.json().catch(()=>({})); return {b, err:j.hint||("HTTP "+r.status)}; }
+        const j = await r.json(); return {b, items:j.items||[]};
+      }catch(e){ return {b, err:String(e.message||e)}; }
+    }));
+    const errs = results.filter(x=>x.err);
+    if(errs.length===BRANDS.length){ $("#scanHint").innerHTML=`⚠ 取得失敗: ${esc(errs[0].err)}`; state.apiOk=false; return; }
+    state.apiOk = true; hideBanner();
+    // ブランド横断でマージし、TCIN重複は先勝ちで排除
+    const seen = new Set(); const merged = [];
+    results.forEach(x=>(x.items||[]).forEach(it=>{
+      const k = String(it.tcin); if(seen.has(k)) return; seen.add(k);
+      merged.push({...it, brand:x.b.label});
+    }));
+    state.scan = merged; renderScan();
+    if(errs.length){ showBanner(`一部ブランドの取得に失敗: ${errs.map(x=>esc(x.b.label)).join("・")}（他は表示中）`); }
   }catch(e){ $("#scanHint").innerHTML = `⚠ この環境では Target API に接続できません（Vercel デプロイ後に有効）。`; }
 }
 function scanSortKey(it){ const n=daysUntil(it.streetDate); return n===null?99999:(n<0?90000-n:n); }
@@ -502,11 +526,12 @@ function renderScan(){
       </div>
       <div class="badges">
         <span class="badge b-target">Target</span>
+        ${it.brand?`<span class="badge b-window">${esc(it.brand)}</span>`:""}
         ${isNew?'<span class="badge b-soon">🆕 カレンダー未登録</span>':'<span class="badge b-mon">登録済</span>'}
       </div>
       <div class="foot">
         <a class="lnk" href="${esc(it.buyUrl||("https://www.target.com/p/-/A-"+it.tcin))}" target="_blank" rel="noopener">Target →</a>
-        ${isNew?`<button class="del" style="margin-left:auto;color:var(--pink)" data-add='${esc(JSON.stringify({tcin:it.tcin,name:it.title,price:it.price,image:it.image,date:it.streetDate||""}))}'>＋カレンダーへ</button>`:""}
+        ${isNew?`<button class="del" style="margin-left:auto;color:var(--pink)" data-add='${esc(JSON.stringify({tcin:it.tcin,name:it.title,price:it.price,image:it.image,date:it.streetDate||"",brand:it.brand||""}))}'>＋カレンダーへ</button>`:""}
       </div>
     </div>`;
   }).join("");
@@ -514,7 +539,7 @@ function renderScan(){
     const o = JSON.parse(b.dataset.add);
     state.user.push({ id:"u_"+o.tcin, name:o.name||("Target "+o.tcin), retailer:"target",
       date:o.date||"", confidence:o.date?"confirmed":"rumored", tcin:String(o.tcin),
-      price:o.price||"", image:o.image||"", notes:"早期検知スキャンから追加" });
+      price:o.price||"", image:o.image||"", brand:o.brand||"", notes:"早期検知スキャンから追加" });
     saveUser(); checkTcin(String(o.tcin)); renderScan(); render();
   });
   render();
