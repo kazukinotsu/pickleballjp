@@ -10,7 +10,8 @@
   "drops": [
     {
       "id": "tgt-sample-1",
-      "name": "商品例 / Squeezy Toy A（差し替え用サンプル）",
+      "name": "商品例 / NeeDoh Classic（差し替え用サンプル）",
+      "brand": "NeeDoh",
       "retailer": "target",
       "date": "2026-08-20",
       "confidence": "sample",
@@ -24,7 +25,8 @@
     },
     {
       "id": "wmt-sample-1",
-      "name": "商品例 / Squeezy Toy B（差し替え用サンプル）",
+      "name": "商品例 / Squeezy Toy（差し替え用サンプル）",
+      "brand": "Squeezy",
       "retailer": "walmart",
       "date": "2026-08-27",
       "confidence": "sample",
@@ -38,7 +40,8 @@
     },
     {
       "id": "wba-sample-1",
-      "name": "商品例 / Walgreens 限定 Squeezy Toy（差し替え用サンプル）",
+      "name": "商品例 / Walgreens 限定 RMS Dumplings（差し替え用サンプル）",
+      "brand": "RMS Dumplings",
       "retailer": "walgreens",
       "date": "",
       "confidence": "window",
