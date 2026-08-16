@@ -145,7 +145,7 @@ picklejp-app/
 
 ## Squeezy Drop Radar（`/drops`）
 
-Squeezy（squeezy toy）の新作・限定ドロップを **Target / Walmart / Walgreens** の3店について「事前に把握」するツール。ピックルボール本体とは独立した追加ページで、同じ Vercel でそのまま配信されます。検索キーワードは `drops.html` の `KW` 定数（現在 `"squeezy toy"`）を変えれば全体に反映されます。
+Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の新作・限定ドロップを **Target / Walmart / Walgreens** の3店について「事前に把握」するツール。ピックルボール本体とは独立した追加ページで、同じ Vercel でそのまま配信されます。追跡ブランドは `drops.html` の `BRANDS` 配列に1行足せば全体（スキャン・リンク・バッジ）に反映されます。
 
 - **ページ**: [`drops.html`](./drops.html) → 本番では `/drops`（`vercel.json` の cleanUrls）
 - **カレンダーデータ**: [`drops-data.json`](./drops-data.json) — 今後のドロップ予定（スクワッド名・予定日・確度・TCIN）。`confidence: "sample"` の行は構造を示すダミーなので、リーク/コレクター情報で差し替えて運用します。
