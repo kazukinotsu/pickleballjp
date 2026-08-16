@@ -210,6 +210,9 @@
         <div class="field"><label>店舗</label>
           <select id="f_retailer"><option value="target">Target</option><option value="walmart">Walmart</option><option value="walgreens">Walgreens</option></select>
         </div>
+        <div class="field"><label>ブランド</label>
+          <select id="f_brand"><option value="">未指定</option></select>
+        </div>
         <div class="field"><label>発売予定日</label><input id="f_date" type="date"></div>
         <div class="field"><label>確度</label>
           <select id="f_conf"><option value="rumored">リーク/噂</option><option value="confirmed">確定</option><option value="window">時期のみ</option></select>
@@ -226,7 +229,7 @@
   <section class="block">
     <h2>🛰️ Target 早期検知 <span class="pill">未告知SKU＝これからドロップの可能性。発売日順に表示</span></h2>
     <div class="cards" id="scanCards"></div>
-    <p id="scanHint" class="empty">「🔎 Target 早期検知スキャン」を押すと、Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の5ブランドを Target の商品DBから一括取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します。</p>
+    <p id="scanHint" class="empty">ページを開くと Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の5ブランドを Target の商品DBから自動で一括取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します（「🔎 Target 早期検知スキャン」で再取得）。</p>
   </section>
 
   <footer>
@@ -559,6 +562,7 @@ $("#addBtn").onclick = ()=>{
   const extra=$("#f_extra").value.trim();
   const m = extra.match(/(\$[\d.]+)?\s*\/?\s*([\d.]+in)?/i)||[];
   state.user.push({ id:"u_"+Date.now(), name, retailer:$("#f_retailer").value,
+    brand:$("#f_brand").value||"",
     date:$("#f_date").value||"", confidence:$("#f_conf").value, tcin:$("#f_tcin").value.trim(),
     price:m[1]||extra, size:m[2]||"", notes:$("#f_notes").value.trim() });
   saveUser();
@@ -574,10 +578,12 @@ $("#autoChk").onchange = e=>{ if(e.target.checked){ timer=setInterval(refreshLiv
 (async ()=>{
   state.zip = localStorage.getItem(LS_ZIP) || "94022";
   $("#zip").value = state.zip;
+  $("#f_brand").innerHTML = '<option value="">未指定</option>' +
+    BRANDS.map(b=>`<option>${esc(b.label)}</option>`).join("");
   await loadJSON();
   render();
   await probeApi();
-  if(state.apiOk){ resolveStore(); refreshLive(); }
+  if(state.apiOk){ resolveStore(); refreshLive(); scan(); } // 5ブランドを自動スキャン
 })();
 </script>
 </body>
