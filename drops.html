@@ -255,6 +255,58 @@ function searchUrl(retailer, kw){
     : retailer==="walgreens" ? `https://www.walgreens.com/search/results.jsp?Ntt=${q}`
     : `https://www.target.com/s/${q}`;
 }
+
+// --- Redsky 直叩き（ブラウザ→Target）------------------------------------
+// Vercel 等のデータセンターIPは Target の bot 対策で 403 になるため、
+// まず閲覧者自身のブラウザ（家庭用IP）から直接 Redsky を叩く。
+// target.com 自体がブラウザから同APIを使うため CORS は開放されている。
+// 失敗した場合のみ /api/target-check（サーバー経由）にフォールバック。
+const RK = "9f36aeafbe60771e321a7cc95a78140772ab3e96";
+const RBASE = "https://redsky.target.com/redsky_aggregations/v1/web";
+const INTEREST = /(street_date|launch_date|release_date|available_to_promise|preorder|purchase_limit|is_available|out_of_stock|coming_soon)/i;
+function deepFind(o,out,d){ if(d>8||o==null||typeof o!=="object") return out;
+  for(const k of Object.keys(o)){ const v=o[k];
+    if(INTEREST.test(k)&&(v==null||typeof v!=="object")) out[k]=v;
+    if(v&&typeof v==="object") deepFind(v,out,d+1);
+  } return out; }
+const gp=(o,p)=>p.split(".").reduce((a,k)=>a==null?undefined:a[k],o);
+async function rsky(endpoint, params){
+  const qs = new URLSearchParams({key:RK, ...params}).toString();
+  const r = await fetch(`${RBASE}/${endpoint}?${qs}`);
+  if(!r.ok) throw new Error("Redsky HTTP "+r.status);
+  return r.json();
+}
+function normItem(p){
+  const item=p.item||{}, price=p.price||{}, sig=deepFind(p,{},0);
+  return { tcin:p.tcin||item.tcin||null,
+    title:gp(item,"product_description.title")||null,
+    price:price.formatted_current_price||(price.current_retail!=null?"$"+price.current_retail:null),
+    image:gp(item,"enrichment.images.primary_image_url")||null,
+    buyUrl:gp(item,"enrichment.buy_url")||(p.tcin?"https://www.target.com/p/-/A-"+p.tcin:null),
+    streetDate:sig.street_date||sig.launch_date||sig.release_date||null, signals:sig };
+}
+const sid=()=>state.store?state.store.id:"3991";
+async function directSearch(kw,count){
+  const j = await rsky("plp_search_v2",{keyword:kw,channel:"WEB",count:String(count),offset:"0",
+    page:"/s/"+kw,platform:"desktop",pricing_store_id:sid(),store_ids:sid(),
+    visitor_id:"018F6E2A9C3B0201B12CBDDE38A0AB4D",zip:state.zip||""});
+  const prods = gp(j,"data.search.products")||[];
+  return (Array.isArray(prods)?prods:[]).map(normItem).filter(x=>x.tcin);
+}
+async function directStores(zip){
+  const j = await rsky("nearby_stores_v1",{limit:"6",within:"100",place:zip,channel:"WEB"});
+  const raw = gp(j,"data.nearby_stores.stores")||gp(j,"data.nearby_stores")||[];
+  return (Array.isArray(raw)?raw:[]).map(s=>({id:String(s.store_id||s.location_id||""),
+    name:s.location_name||s.store_name||null, city:gp(s,"mailing_address.city")||null,
+    state:gp(s,"mailing_address.region")||gp(s,"mailing_address.state")||null,
+    distance:s.distance!=null?Math.round(s.distance):null})).filter(s=>s.id);
+}
+async function directPdp(tcin){
+  const j = await rsky("pdp_client_v1",{tcin,is_bot:"false",store_id:sid(),pricing_store_id:sid(),
+    has_pricing_store_id:"true",channel:"WEB",page:"/p/A-"+tcin});
+  const p = gp(j,"data.product");
+  return p?normItem(p):null;
+}
 const LS_USER = "sqdrops_user_v1";
 const LS_ZIP = "sqdrops_zip_v1";
 const state = { data:[], user:[], retailer:"all", status:"all", live:{}, scan:[], apiOk:null, zip:"", store:null };
@@ -423,38 +475,52 @@ function render(){
 
 // ---- 店舗解決（ZIP → 最寄り Target）----
 function zipParam(){ return state.zip?`&zip=${encodeURIComponent(state.zip)}`:""; }
+function showStore(s){
+  state.store = s;
+  $("#storeInfo").innerHTML = `<span class="store">監視店舗: <b>${esc(s.name||("Store "+s.id))}</b>${s.city?"（"+esc(s.city)+(s.state?", "+esc(s.state):"")+"）":""}${s.distance!=null?" ・ "+esc(s.distance)+"mi":""}</span>`;
+}
 async function resolveStore(){
   if(!/^\d{5}$/.test(state.zip)){ $("#storeInfo").innerHTML=`<span class="muted">5桁のZIPを入力してください。</span>`; return; }
   $("#storeInfo").innerHTML = `<span class="spin"></span> <span class="muted">最寄り店舗を検索中…</span>`;
+  // 1) ブラウザ直叩き
+  try{
+    const list = await directStores(state.zip);
+    if(list.length){ state.apiOk=true; hideBanner(); showStore(list[0]); refreshLive(); return; }
+  }catch(e){}
+  // 2) サーバー経由フォールバック
   try{
     const r = await fetch(`/api/target-check?mode=stores&zip=${encodeURIComponent(state.zip)}`);
     if(!r.ok){ const j=await r.json().catch(()=>({})); $("#storeInfo").innerHTML=`<span class="muted">店舗取得不可: ${esc(j.hint||("HTTP "+r.status))}</span>`; return; }
     const j = await r.json(); state.apiOk=true; hideBanner();
     const s = (j.stores||[])[0];
     if(!s){ $("#storeInfo").innerHTML=`<span class="muted">この ZIP 付近に店舗が見つかりません。</span>`; state.store=null; return; }
-    state.store = s;
-    $("#storeInfo").innerHTML = `<span class="store">監視店舗: <b>${esc(s.name||("Store "+s.id))}</b>${s.city?"（"+esc(s.city)+(s.state?", "+esc(s.state):"")+"）":""}${s.distance!=null?" ・ "+esc(s.distance)+"mi":""}</span>`;
+    showStore(s);
     refreshLive();
-  }catch(e){ $("#storeInfo").innerHTML=`<span class="muted">この環境では店舗APIに接続できません（Vercel上で有効）。</span>`; }
+  }catch(e){ $("#storeInfo").innerHTML=`<span class="muted">店舗APIに接続できませんでした。</span>`; }
 }
 
 // ---- Target 自動監視 ----
+function applyTcinResult(tcin, p){
+  if(!p || !p.tcin){ state.live[tcin]={status:"notfound"}; render(); return; }
+  const n = daysUntil(p.streetDate);
+  let status;
+  if(p.streetDate && n!==null && n>0) status="scheduled";
+  else if(p.buyUrl && (p.price || hasStock(p.signals))) status="live";
+  else status="listed";
+  state.live[tcin] = {status, price:p.price, streetDate:p.streetDate, title:p.title};
+  render();
+}
 async function checkTcin(tcin){
   state.live[tcin] = {loading:true}; render();
+  // 1) ブラウザ直叩き
+  try{ const p = await directPdp(tcin); state.apiOk=true; applyTcinResult(tcin,p); return; }catch(e){}
+  // 2) サーバー経由フォールバック
   try{
     const r = await fetch(`/api/target-check?tcin=${encodeURIComponent(tcin)}${zipParam()}`);
-    if(!r.ok){ const j=await r.json().catch(()=>({})); state.live[tcin]={status:"error",hint:j.hint||("HTTP "+r.status)}; state.apiOk=false; render(); return; }
+    if(!r.ok){ const j=await r.json().catch(()=>({})); state.live[tcin]={status:"error",hint:j.hint||("HTTP "+r.status)}; render(); return; }
     const j = await r.json(); state.apiOk = true;
-    const p = j.product;
-    if(!p || !p.tcin){ state.live[tcin]={status:"notfound"}; render(); return; }
-    const n = daysUntil(p.streetDate);
-    let status;
-    if(p.streetDate && n!==null && n>0) status="scheduled";
-    else if(p.buyUrl && (p.price || hasStock(p.signals))) status="live";
-    else status="listed";
-    state.live[tcin] = {status, price:p.price, streetDate:p.streetDate, title:p.title};
-    render();
-  }catch(e){ state.live[tcin]={status:"error",hint:String(e.message||e)}; state.apiOk=false; render(); }
+    applyTcinResult(tcin, j.product);
+  }catch(e){ state.live[tcin]={status:"error",hint:String(e.message||e)}; render(); }
 }
 function hasStock(sig){
   if(!sig) return false; const s = JSON.stringify(sig).toLowerCase();
@@ -468,11 +534,14 @@ function refreshLive(){
 }
 
 async function probeApi(){
+  // 1) ブラウザ→Redsky 直接（bot対策の影響を受けない）
+  try{ await directSearch(BRANDS[0].kw, 1); state.apiOk=true; hideBanner(); return; }catch(e){}
+  // 2) サーバー経由
   try{
     const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(BRANDS[0].kw)}&count=1${zipParam()}`);
     if(r.ok){ state.apiOk=true; hideBanner(); }
     else { const j=await r.json().catch(()=>({})); state.apiOk=false; showBanner(j.hint||("Target API 応答: HTTP "+r.status)); }
-  }catch(e){ state.apiOk=false; showBanner("ローカル/静的環境では Target 自動監視は動きません。Vercel にデプロイ（または <code>vercel dev</code>）すると有効になります。"); }
+  }catch(e){ state.apiOk=false; showBanner("Target API に接続できません（ブラウザ直接・サーバー経由とも失敗）。時間を置いて再読み込みしてください。"); }
 }
 function showBanner(msg){ const b=$("#apiBanner"); b.innerHTML=`<b>ⓘ 自動監視について：</b> ${msg}`; b.classList.add("show"); }
 function hideBanner(){ $("#apiBanner").classList.remove("show"); }
@@ -482,11 +551,16 @@ async function scan(){
   $("#scanHint").innerHTML = `<span class="spin"></span> Target を検索中…（${BRANDS.length}ブランド一括）`; $("#scanHint").style.display="block";
   try{
     const results = await Promise.all(BRANDS.map(async b=>{
+      // 1) ブラウザ直叩き（bot対策を回避）
+      let directErr = null;
+      try{ const items = await directSearch(b.kw, 24); return {b, items, via:"direct"}; }
+      catch(e){ directErr = String(e.message||e); }
+      // 2) サーバー経由フォールバック
       try{
         const r = await fetch(`/api/target-check?keyword=${encodeURIComponent(b.kw)}&count=24${zipParam()}`);
-        if(!r.ok){ const j=await r.json().catch(()=>({})); return {b, err:j.hint||("HTTP "+r.status)}; }
-        const j = await r.json(); return {b, items:j.items||[], diag:j.diag||null};
-      }catch(e){ return {b, err:String(e.message||e)}; }
+        if(!r.ok){ const j=await r.json().catch(()=>({})); return {b, err:(j.hint||("HTTP "+r.status))+"（直接接続も失敗: "+directErr+"）"}; }
+        const j = await r.json(); return {b, items:j.items||[], diag:j.diag||null, via:"proxy"};
+      }catch(e){ return {b, err:"直接接続・サーバー経由とも失敗（"+directErr+"）"}; }
     }));
     const errs = results.filter(x=>x.err);
     if(errs.length===BRANDS.length){ $("#scanHint").innerHTML=`⚠ 取得失敗: ${esc(errs[0].err)}`; state.apiOk=false; return; }
