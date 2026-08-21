@@ -3,7 +3,20 @@
   "_dpciFormat": "DPCI は 3桁(部門)-2桁(クラス)-4桁(アイテム)。Redsky 検索でそのまま引ける。",
   "zip": "94040",
   "storeId": "",
-  "_storeIdNote": "空なら zip から最寄り店舗を自動解決する。固定したい場合は店舗ID(例 2775)を入れる。",
+  "_storeIdNote": "空なら zip から最寄り店舗を自動解決する。固定したい場合は店舗ID(例 322 = Mountain View)を入れる。",
+  "_keywordNote": "DPCI を直接キーワード検索しても引けない(無関係な商品が返る)ため、ブランド名で広く検索し、検索結果に含まれる dpci で突き合わせる。監視したい商品のブランドをここに足す。",
+  "searchKeywords": [
+    "needoh",
+    "squeeezy",
+    "squeezy toy",
+    "sunny days squishy",
+    "rms dumplings",
+    "kool aid squishi",
+    "jell-o squishi",
+    "sticker therapy",
+    "orb charmlets",
+    "clickeez"
+  ],
   "items": [
     { "dpci": "086-03-3602", "name": "Squeeezy Dachshund" },
     { "dpci": "086-03-0121", "name": "Squeezy Game C…" },

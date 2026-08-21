@@ -12,15 +12,16 @@ name: Drop Watch (Target)
 #   TARGET_REDSKY_KEY  … Redsky 公開キーが失効したとき差し替える
 #   TARGET_STORE_ID    … 監視店舗を固定したいとき
 
-# 【定期実行は停止中】Target は データセンターIP からの API アクセスを CAPTCHA で
-# 拒否するため、GitHub ランナーからは商品データを取得できない（実測: HTTP 403 +
-# captchaRelativeURL）。定期監視は Mac 常駐版 scripts/watch-local.sh が担当する。
-# Target 側の状況が変われば下の schedule を戻せば再開できる（確認は
-# Probe Target reachability ワークフローを手動実行）。
+# 以前 403 + CAPTCHA で弾かれていたのは、ブラウザでないのに Origin/Referer を
+# 偽装して送っていたため。偽装をやめたらランナーからも通ることを実測で確認したので、
+# 定期実行を再開している（Probe Target reachability で再確認できる）。
 on:
-  # schedule:
-  #   - cron: "*/15 13-17 * * *"   # 6:00-10:00 PT
-  #   - cron: "0 2 * * *"          # 前夜の street date 確認
+  schedule:
+    # ドロップは開店(8時前後)に反映されるため 6:00-10:00 PT を15分間隔
+    # PDT(UTC-7) 換算: 13:00-17:00 UTC
+    - cron: "*/15 13-17 * * *"
+    # 前夜にも1回。翌日の street date が入った時点で「明日発売」を捕まえる
+    - cron: "0 2 * * *"
   workflow_dispatch: {}
 
 concurrency:

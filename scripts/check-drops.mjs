@@ -31,9 +31,8 @@ const OUT_DIR = path.join(ROOT, "out");
 const KEY = process.env.TARGET_REDSKY_KEY || "9f36aeafbe60771e321a7cc95a78140772ab3e96";
 const BASE = "https://redsky.target.com/redsky_aggregations/v1/web";
 const TZ = process.env.ALERT_TZ || "America/Los_Angeles";
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+// Redsky が必須にしている変数。欠けると GraphQL が 400 を返す。
+const VISITOR = "018F6E2A9C3B0201B12CBDDE38A0AB4D";
 
 // --- 小道具 -----------------------------------------------------------------
 
@@ -48,16 +47,12 @@ function localDate(offsetDays = 0) {
   }).format(d);
 }
 
+// ブラウザでないのに Origin/Referer を偽装して送ると Akamai に 403 + CAPTCHA で
+// 弾かれる（実測済み）。素直に Accept だけ送ると GraphQL 層まで通る。
 async function redsky(endpoint, params) {
   const qs = new URLSearchParams({ key: KEY, ...params }).toString();
   const res = await fetch(`${BASE}/${endpoint}?${qs}`, {
-    headers: {
-      "User-Agent": UA,
-      Accept: "application/json",
-      "Accept-Language": "en-US,en;q=0.9",
-      Origin: "https://www.target.com",
-      Referer: "https://www.target.com/",
-    },
+    headers: { Accept: "application/json" },
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`Redsky HTTP ${res.status} (${endpoint})`);
@@ -82,41 +77,43 @@ async function nearestStore(zip) {
   return list[0] || null;
 }
 
-// DPCI から商品を引く。ハイフン有/無の両方を試す。
-async function resolveByDpci(dpci, storeId) {
-  for (const kw of [dpci, digits(dpci)]) {
-    let j;
+// DPCI を直接キーワード検索しても引けない（無関係な商品が返る）。
+// 検索結果には item.dpci が入っているので、ブランド名で広く検索して
+// DPCI で突き合わせる。1回の実行で全キーワードを舐めて索引を作る。
+async function harvestByKeywords(keywords, storeId) {
+  const byDpci = new Map();
+  const errors = [];
+  for (const kw of keywords) {
     try {
-      j = await redsky("plp_search_v2", {
-        keyword: kw, channel: "WEB", count: "8", offset: "0",
+      const j = await redsky("plp_search_v2", {
+        keyword: kw, channel: "WEB", count: "48", offset: "0",
         page: `/s/${kw}`, platform: "desktop",
-        pricing_store_id: storeId, store_ids: storeId,
-        visitor_id: "018F6E2A9C3B0201B12CBDDE38A0AB4D",
+        pricing_store_id: storeId, store_ids: storeId, visitor_id: VISITOR,
       });
-    } catch { continue; }
-    const prods = gp(j, "data.search.products") || [];
-    if (!Array.isArray(prods) || !prods.length) continue;
-    // DPCI が一致するものを優先。無ければ先頭。
-    const want = digits(dpci);
-    const hit = prods.find((p) => digits(gp(p, "item.dpci")) === want) || prods[0];
-    if (hit && (hit.tcin || gp(hit, "item.tcin"))) return hit;
+      const prods = gp(j, "data.search.products") || [];
+      for (const p of Array.isArray(prods) ? prods : []) {
+        const d = digits(gp(p, "item.dpci"));
+        if (d && !byDpci.has(d)) byDpci.set(d, p);
+      }
+    } catch (e) {
+      errors.push(`${kw}: ${e.message}`);
+    }
   }
-  return null;
+  return { byDpci, errors };
 }
 
 async function pdp(tcin, storeId) {
   const j = await redsky("pdp_client_v1", {
-    tcin, is_bot: "false", store_id: storeId, pricing_store_id: storeId,
-    has_pricing_store_id: "true", channel: "WEB", page: `/p/A-${tcin}`,
+    tcin, channel: "WEB", page: `/p/A-${tcin}`, pricing_store_id: storeId,
   });
   return gp(j, "data.product") || null;
 }
 
 async function fulfillment(tcin, storeId, zip) {
   const j = await redsky("pdp_fulfillment_v1", {
-    tcin, is_bot: "false", store_id: storeId, store_positions_store_id: storeId,
-    has_store_positions_store_id: "true", zip, required_store_id: storeId,
-    has_required_store_id: "true", channel: "WEB", page: `/p/A-${tcin}`,
+    tcin, channel: "WEB", page: `/p/A-${tcin}`,
+    store_id: storeId, pricing_store_id: storeId, zip, visitor_id: VISITOR,
+    required_store_id: storeId, has_required_store_id: "true",
   });
   return gp(j, "data.product.fulfillment") || null;
 }
@@ -298,22 +295,23 @@ async function main() {
   const hits = [];
   const failures = [];
 
+  // ブランド名で検索して DPCI 索引を作る（DPCI 直接検索は効かないため）
+  const keywords = cfg.searchKeywords || [];
+  const { byDpci, errors: kwErrors } = await harvestByKeywords(keywords, storeId);
+  console.log(`索引: ${byDpci.size}件の DPCI を ${keywords.length}キーワードから収集` +
+    (kwErrors.length ? ` (失敗 ${kwErrors.length}: ${kwErrors[0]})` : ""));
+
   for (const item of cfg.items) {
     const key = digits(item.dpci);
     const prev = state.items[key] || null;
     try {
-      // 既に TCIN 解決済みならそれを使い、無ければ DPCI 検索
-      let tcin = prev?.tcin || null;
+      // 索引に居ればその TCIN、無ければ前回解決した TCIN を使う
+      const found = byDpci.get(key) || null;
+      let tcin = (found && (found.tcin || gp(found, "item.tcin"))) || prev?.tcin || null;
       let product = null;
       if (tcin) {
         product = await pdp(tcin, storeId).catch(() => null);
-      }
-      if (!product) {
-        const found = await resolveByDpci(item.dpci, storeId);
-        if (found) {
-          tcin = found.tcin || gp(found, "item.tcin");
-          product = await pdp(tcin, storeId).catch(() => found);
-        }
+        if (!product && found) product = found;
       }
       if (!product) {
         // まだ Target 側に出ていない＝これから登録される可能性がある
