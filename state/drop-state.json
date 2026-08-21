@@ -4,127 +4,247 @@
       "dpci": "086-03-3602",
       "name": "Squeeezy Dachshund",
       "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "checkedAt": "2026-08-21T21:29:11.693Z"
     },
     "086030121": {
       "dpci": "086-03-0121",
       "name": "Squeezy Game C…",
       "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "checkedAt": "2026-08-21T21:29:11.693Z"
     },
     "086034962": {
       "dpci": "086-03-4962",
       "name": "Squeeezy Hyland…",
       "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "checkedAt": "2026-08-21T21:29:11.693Z"
     },
     "086009273": {
       "dpci": "086-00-9273",
       "name": "NeeDoh Nice Cub…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94619824",
+      "title": "NeeDoh Nice Cube Glitter and Glow (Colors May Vary)",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:11.973Z"
     },
     "086030253": {
       "dpci": "086-03-0253",
       "name": "NeeDoh Mello Ma…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94856724",
+      "title": "NeeDoh Mello Mallo (Colors May Vary)",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:12.282Z"
     },
     "086000383": {
       "dpci": "086-00-0383",
       "name": "NeeDoh Fuzz Ball",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94619823",
+      "title": "NeeDoh Fuzz Ball (Colors May Vary)",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:12.583Z"
     },
     "086033182": {
       "dpci": "086-03-3182",
       "name": "NeeDoh Cool Cat…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94856728",
+      "title": "NeeDoh Cool Cats (Colors May Vary)",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:12.868Z"
     },
     "086039511": {
       "dpci": "086-03-9511",
       "name": "NeeDoh Color Ch…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94856726",
+      "title": "NeeDoh Color Change (Colors May Vary)",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:13.182Z"
     },
     "086039292": {
       "dpci": "086-03-9292",
       "name": "NeeDoh Cloud Pl…",
       "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "checkedAt": "2026-08-21T21:29:13.182Z"
     },
     "086039018": {
       "dpci": "086-03-9018",
       "name": "Sunny Days Sque…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94757100",
+      "title": "Sunny Days Squeezy Butter Shape Fidget Toy",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:13.472Z"
     },
     "086034873": {
       "dpci": "086-03-4873",
       "name": "Sunny Days Sque…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94843132",
+      "title": "Sunny Days Squeezy Carrot",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:13.811Z"
     },
     "086030648": {
       "dpci": "086-03-0648",
       "name": "Sunny Days Sque…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94757067",
+      "title": "Sunny Days Squeezy Banana",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:14.126Z"
     },
     "086030252": {
       "dpci": "086-03-0252",
       "name": "Sunny Days Sque…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94843134",
+      "title": "Sunny Days Squeezy Peach",
+      "price": "$5.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:14.459Z"
     },
     "086033764": {
       "dpci": "086-03-3764",
       "name": "Sunny Days Jumb…",
       "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "checkedAt": "2026-08-21T21:29:14.459Z"
     },
     "086030347": {
       "dpci": "086-03-0347",
       "name": "RMS USA - Myste…",
       "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "checkedAt": "2026-08-21T21:29:14.459Z"
     },
     "086031476": {
       "dpci": "086-03-1476",
       "name": "Kool-Aid Squishi…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "94807522",
+      "title": "Kool-Aid Squishi Scented Man",
+      "price": "$4.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:14.743Z"
     },
     "086031516": {
       "dpci": "086-03-1516",
       "name": "Hershey's S…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "95005224",
+      "title": "HERSHEY&#39;S Squishi Scented",
+      "price": "$4.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:15.025Z"
     },
     "086033343": {
       "dpci": "086-03-3343",
       "name": "Jell-O Squishi Jig…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "95005226",
+      "title": "Jell-O Squishi Jiggle Cube",
+      "price": "$4.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:15.405Z"
     },
     "086035794": {
       "dpci": "086-03-5794",
       "name": "Sticker Therapy 8 Series 1",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "95126413",
+      "title": "Sticker Therapy 80 Kawaii Kitties Foil Bag Intermediate Series 1",
+      "price": "$2.99",
+      "streetDate": null,
+      "purchasable": false,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:15.696Z"
     },
     "086030227": {
       "dpci": "086-03-0227",
       "name": "ORB Charmlets A…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "95113201",
+      "title": "ORB Charmlets Array",
+      "price": "$4.99",
+      "streetDate": null,
+      "purchasable": false,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:15.997Z"
     },
     "086030405": {
       "dpci": "086-03-0405",
       "name": "Clickeez S3 2pk C…",
-      "notFound": true,
-      "checkedAt": "2026-08-21T21:25:28.470Z"
+      "tcin": "1010391833",
+      "title": "Clickeez S3 2pk CDU Fidget Toy",
+      "price": "$4.99",
+      "streetDate": null,
+      "purchasable": false,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-08-21T21:29:16.331Z"
     }
   },
   "storeId": "322",
