@@ -47,20 +47,80 @@ function localDate(offsetDays = 0) {
   }).format(d);
 }
 
-// ブラウザでないのに Origin/Referer を偽装して送ると Akamai に 403 + CAPTCHA で
-// 弾かれる（実測済み）。素直に Accept だけ送ると GraphQL 層まで通る。
-async function redsky(endpoint, params) {
+// 監視店舗。main で確定させ、必須変数の補充に使う。
+let STORE_ID = "3991";
+
+// Redsky が必須にしている変数の既定値。GraphQL が名指しで「無い」と言ってきたら
+// ここから補う。必須変数は予告なく増えるので、推測で並べるのではなく
+// エラーを読んで足す方式にしている。
+const VAR_DEFAULTS = {
+  visitor_id: () => VISITOR,
+  pricing_store_id: () => STORE_ID,
+  store_id: () => STORE_ID,
+  store_ids: () => STORE_ID,
+  required_store_id: () => STORE_ID,
+  scheduled_delivery_store_id: () => STORE_ID,
+  store_positions_store_id: () => STORE_ID,
+  has_required_store_id: () => "true",
+  has_pricing_store_id: () => "true",
+  has_store_positions_store_id: () => "true",
+  channel: () => "WEB",
+  platform: () => "desktop",
+  is_bot: () => "false",
+  zip: () => "",
+  state: () => "CA",
+  latitude: () => "37.40",
+  longitude: () => "-122.08",
+  count: () => "24",
+  offset: () => "0",
+  paid_membership: () => "false",
+  base_membership: () => "false",
+  card_membership: () => "false",
+  new_cart_checkout: () => "false",
+};
+
+function missingVars(json) {
+  const out = [];
+  for (const e of json?.errors || []) {
+    const m = /Variable '([^']+)'/.exec(e.message || "");
+    if (m) out.push(m[1]);
+  }
+  return [...new Set(out)];
+}
+
+async function redskyRaw(endpoint, params) {
   const qs = new URLSearchParams({ key: KEY, ...params }).toString();
+  // ブラウザでないのに Origin/Referer を偽装して送ると Akamai に 403 + CAPTCHA で
+  // 弾かれる（実測済み）。素直に Accept だけ送ると GraphQL 層まで通る。
   const res = await fetch(`${BASE}/${endpoint}?${qs}`, {
     headers: { Accept: "application/json" },
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`Redsky HTTP ${res.status} (${endpoint})`);
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Redsky non-JSON response (${endpoint})`);
+  let json = null;
+  try { json = JSON.parse(text); } catch {}
+  return { status: res.status, json, text };
+}
+
+// 不足変数を補いながら、通るまで再試行する
+async function redsky(endpoint, params) {
+  const p = { ...params };
+  for (let i = 0; i < 6; i++) {
+    const r = await redskyRaw(endpoint, p);
+    if (r.status === 403 || /captcha/i.test(r.text.slice(0, 400))) {
+      throw new Error(`Akamai にブロック HTTP ${r.status} (${endpoint})`);
+    }
+    if (r.json && !r.json.errors) return r.json;
+    const miss = r.json ? missingVars(r.json) : [];
+    if (!miss.length) {
+      throw new Error(`HTTP ${r.status} (${endpoint}): ${r.text.slice(0, 160)}`);
+    }
+    for (const v of miss) {
+      const d = VAR_DEFAULTS[v];
+      if (!d) throw new Error(`必須変数 '${v}' の既定値が未定義 (${endpoint})`);
+      p[v] = d();
+    }
   }
+  throw new Error(`変数の補充が収束しません (${endpoint})`);
 }
 
 // --- Redsky 問い合わせ ------------------------------------------------------
@@ -80,15 +140,13 @@ async function nearestStore(zip) {
 // DPCI を直接キーワード検索しても引けない（無関係な商品が返る）。
 // 検索結果には item.dpci が入っているので、ブランド名で広く検索して
 // DPCI で突き合わせる。1回の実行で全キーワードを舐めて索引を作る。
-async function harvestByKeywords(keywords, storeId) {
+async function harvestByKeywords(keywords) {
   const byDpci = new Map();
   const errors = [];
   for (const kw of keywords) {
     try {
       const j = await redsky("plp_search_v2", {
-        keyword: kw, channel: "WEB", count: "48", offset: "0",
-        page: `/s/${kw}`, platform: "desktop",
-        pricing_store_id: storeId, store_ids: storeId, visitor_id: VISITOR,
+        keyword: kw, channel: "WEB", count: "24", offset: "0", page: `/s/${kw}`,
       });
       const prods = gp(j, "data.search.products") || [];
       for (const p of Array.isArray(prods) ? prods : []) {
@@ -102,18 +160,16 @@ async function harvestByKeywords(keywords, storeId) {
   return { byDpci, errors };
 }
 
-async function pdp(tcin, storeId) {
+async function pdp(tcin) {
   const j = await redsky("pdp_client_v1", {
-    tcin, channel: "WEB", page: `/p/A-${tcin}`, pricing_store_id: storeId,
+    tcin, channel: "WEB", page: `/p/A-${tcin}`,
   });
   return gp(j, "data.product") || null;
 }
 
-async function fulfillment(tcin, storeId, zip) {
+async function fulfillment(tcin) {
   const j = await redsky("pdp_fulfillment_v1", {
     tcin, channel: "WEB", page: `/p/A-${tcin}`,
-    store_id: storeId, pricing_store_id: storeId, zip, visitor_id: VISITOR,
-    required_store_id: storeId, has_required_store_id: "true",
   });
   return gp(j, "data.product.fulfillment") || null;
 }
@@ -289,6 +345,8 @@ async function main() {
     if (!s) throw new Error(`ZIP ${cfg.zip} の近くに Target が見つかりません`);
     storeId = s.id; storeName = s.name;
   }
+  STORE_ID = storeId;          // 必須変数の自動補充にこの店舗を使う
+  VAR_DEFAULTS.zip = () => cfg.zip || "";
   state.storeId = storeId;
   if (storeName) state.storeName = storeName;
 
@@ -297,7 +355,7 @@ async function main() {
 
   // ブランド名で検索して DPCI 索引を作る（DPCI 直接検索は効かないため）
   const keywords = cfg.searchKeywords || [];
-  const { byDpci, errors: kwErrors } = await harvestByKeywords(keywords, storeId);
+  const { byDpci, errors: kwErrors } = await harvestByKeywords(keywords);
   console.log(`索引: ${byDpci.size}件の DPCI を ${keywords.length}キーワードから収集` +
     (kwErrors.length ? ` (失敗 ${kwErrors.length}: ${kwErrors[0]})` : ""));
 
@@ -310,7 +368,7 @@ async function main() {
       let tcin = (found && (found.tcin || gp(found, "item.tcin"))) || prev?.tcin || null;
       let product = null;
       if (tcin) {
-        product = await pdp(tcin, storeId).catch(() => null);
+        product = await pdp(tcin).catch(() => null);
         if (!product && found) product = found;
       }
       if (!product) {
@@ -319,7 +377,7 @@ async function main() {
         continue;
       }
 
-      const ful = tcin ? await fulfillment(tcin, storeId, cfg.zip).catch(() => null) : null;
+      const ful = tcin ? await fulfillment(tcin).catch(() => null) : null;
       const status = readStatus(product, ful);
       const events = detectEvents(prev, status, today, tomorrow);
 
