@@ -1,0 +1,19 @@
+name: Probe Target reachability
+
+# Redsky が GitHub Actions から 403 になることが判明したため、
+# 他に通る取得経路があるかをランナー上で実測する調査用ワークフロー。
+# 経路が確定したら削除してよい。
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Probe
+        run: node scripts/probe-target.mjs
