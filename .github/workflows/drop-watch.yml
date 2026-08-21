@@ -1,0 +1,92 @@
+name: Drop Watch (Target)
+
+# 近くの Target 1店舗について、watchlist.json の DPCI を定期チェックし、
+# 発売日が今日/明日になった・店舗在庫が付いた・購入可能になった商品をメール通知する。
+#
+# 必要な Secrets (Settings > Secrets and variables > Actions):
+#   MAIL_TO        受信アドレス
+#   MAIL_SERVER    SMTP ホスト (例: smtp.gmail.com)
+#   MAIL_PORT      SMTP ポート (例: 465)
+#   MAIL_USERNAME  SMTP ユーザー (Gmail ならアドレス)
+#   MAIL_PASSWORD  SMTP パスワード (Gmail は「アプリ パスワード」)
+# 任意の Secrets:
+#   TARGET_REDSKY_KEY  Redsky 公開キーが失効したとき差し替える
+#   TARGET_STORE_ID    監視店舗を固定したいとき
+
+on:
+  schedule:
+    # ドロップは早朝(開店8時前後)に反映されるため、6:00-10:00 PT を15分間隔で見る
+    # PDT(UTC-7) 換算: 13:00-17:00 UTC
+    - cron: "*/15 13-17 * * *"
+    # 前夜にも1回。翌日の street date が入った時点で「明日発売」を捕まえる
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: drop-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      ALERT_TZ: America/Los_Angeles
+      TARGET_REDSKY_KEY: ${{ secrets.TARGET_REDSKY_KEY }}
+      TARGET_STORE_ID: ${{ secrets.TARGET_STORE_ID }}
+      HAS_MAIL: ${{ secrets.MAIL_SERVER != '' && secrets.MAIL_TO != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check drops
+        id: check
+        run: node scripts/check-drops.mjs
+
+      - name: Read email subject
+        id: mail
+        if: steps.check.outputs.alert == 'true'
+        run: |
+          echo "subject=$(cat out/subject.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Send drop alert
+        if: steps.check.outputs.alert == 'true' && env.HAS_MAIL == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: ${{ steps.mail.outputs.subject }}
+          to: ${{ secrets.MAIL_TO }}
+          from: Target Drop Watch <${{ secrets.MAIL_USERNAME }}>
+          html_body: file://out/email.html
+
+      # 15分ごとに失敗通知を出すと煩いので、前夜の1回だけジョブを失敗させて気付けるようにする
+      - name: Fail once a day if the watcher is broken
+        if: steps.check.outputs.error == 'true' && github.event.schedule == '0 2 * * *'
+        run: |
+          echo "::error::Target(Redsky) に到達できません。TARGET_REDSKY_KEY の失効か bot ブロックの可能性。"
+          exit 1
+
+      - name: Persist state
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/drop-state.json
+          if git diff --cached --quiet; then
+            echo "state unchanged"
+          else
+            git commit -m "chore(drop-watch): update state [skip ci]"
+            # 監視が並走しても取りこぼさないよう、押し出されたら取り込んで再試行
+            for i in 1 2 3; do
+              git push && break
+              git pull --rebase origin "${GITHUB_REF_NAME}" || true
+              sleep 3
+            done
+          fi

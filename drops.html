@@ -227,6 +227,12 @@
   </section>
 
   <section class="block">
+    <h2>🎯 DPCI 監視リスト <span class="pill" id="watchCount">店舗の Line listing から採取した商品番号を直接追跡</span></h2>
+    <div class="cards" id="watchCards"></div>
+    <p id="watchHint" class="empty">watchlist.json の DPCI を読み込み中…</p>
+  </section>
+
+  <section class="block">
     <h2>🛰️ Target 早期検知 <span class="pill">未告知SKU＝これからドロップの可能性。発売日順に表示</span></h2>
     <div class="cards" id="scanCards"></div>
     <p id="scanHint" class="empty">ページを開くと Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の5ブランドを Target の商品DBから自動で一括取得し、カレンダーに無いものを「これからのドロップ候補」として発売日順に表示します（「🔎 Target 早期検知スキャン」で再取得）。</p>
@@ -237,7 +243,7 @@
        Target はその情報を <b>Redsky API</b> で露出するため、棚に並ぶ前・購入可能になる前に検知できます。
        ZIP を入れると最寄り店舗基準で判定します。Walmart / Walgreens は現状カレンダー管理（手動/コミュニティ更新）です。</p>
     <p class="muted">サンプル行は構造を示すダミーで、実在の発売日ではありません。<code>drops-data.json</code> を実データに差し替えてください。</p>
-    <p class="muted">build <b>v7 (browser-direct)</b> — この表示が古い場合はページを強制再読み込みしてください。</p>
+    <p class="muted">build <b>v8 (dpci-watch)</b> — この表示が古い場合はページを強制再読み込みしてください。</p>
   </footer>
 </div>
 
@@ -301,6 +307,23 @@ async function directStores(zip){
     name:s.location_name||s.store_name||null, city:gp(s,"mailing_address.city")||null,
     state:gp(s,"mailing_address.region")||gp(s,"mailing_address.state")||null,
     distance:s.distance!=null?Math.round(s.distance):null})).filter(s=>s.id);
+}
+// DPCI（店舗の商品番号）から商品を引く。ハイフン有/無の両方を試す。
+async function directDpci(dpci){
+  const dig = String(dpci).replace(/\D/g,"");
+  for(const kw of [dpci, dig]){
+    let j;
+    try{
+      j = await rsky("plp_search_v2",{keyword:kw,channel:"WEB",count:"8",offset:"0",
+        page:"/s/"+kw,platform:"desktop",pricing_store_id:sid(),store_ids:sid(),
+        visitor_id:"018F6E2A9C3B0201B12CBDDE38A0AB4D"});
+    }catch(e){ continue; }
+    const prods = gp(j,"data.search.products")||[];
+    if(!Array.isArray(prods)||!prods.length) continue;
+    const hit = prods.find(p=>String(gp(p,"item.dpci")||"").replace(/\D/g,"")===dig)||prods[0];
+    if(hit) return normItem(hit);
+  }
+  return null;
 }
 async function directPdp(tcin){
   const j = await rsky("pdp_client_v1",{tcin,is_bot:"false",store_id:sid(),pricing_store_id:sid(),
@@ -590,6 +613,81 @@ async function scan(){
     }
   }catch(e){ $("#scanHint").innerHTML = `⚠ この環境では Target API に接続できません（Vercel デプロイ後に有効）。`; }
 }
+// ---- DPCI 監視リスト（店舗 Line listing の商品番号を直接追う）----
+async function loadWatchlist(){
+  let cfg;
+  try{ cfg = await (await fetch("watchlist.json?_="+Date.now())).json(); }
+  catch(e){ $("#watchHint").textContent = "watchlist.json を読み込めませんでした。"; return; }
+  const items = cfg.items||[];
+  $("#watchCount").textContent = `${items.length}件を追跡中`;
+  $("#watchHint").innerHTML = `<span class="spin"></span> ${items.length}件の DPCI を Target で照合中…`;
+
+  const results = [];
+  // 一気に投げると弾かれやすいので4件ずつ
+  for(let i=0;i<items.length;i+=4){
+    const batch = items.slice(i,i+4);
+    const got = await Promise.all(batch.map(async it=>{
+      try{ return {it, p: await directDpci(it.dpci)}; }catch(e){ return {it, p:null, err:String(e.message||e)}; }
+    }));
+    results.push(...got);
+    renderWatch(results, items.length);
+  }
+  const found = results.filter(r=>r.p).length;
+  if(!found){
+    $("#watchHint").style.display="block";
+    $("#watchHint").innerHTML = `照合できた商品がありません。Target 側にまだ登録されていないか、APIに到達できていません。`;
+  }
+}
+function renderWatch(results, total){
+  const rank = r => {
+    if(!r.p) return 3;                       // 未登録は最後
+    const n = daysUntil(r.p.streetDate);
+    if(n!==null && n>=0) return 0;           // 発売日が判明＝最優先
+    return r.p.price ? 2 : 1;                // 価格なし(未発売)を先に
+  };
+  const sorted = results.slice().sort((a,b)=>{
+    const d = rank(a)-rank(b); if(d) return d;
+    const na=daysUntil(a.p&&a.p.streetDate), nb=daysUntil(b.p&&b.p.streetDate);
+    if(na===null&&nb===null) return 0; if(na===null) return 1; if(nb===null) return -1;
+    return na-nb;
+  });
+  $("#watchHint").style.display = results.length>=total ? "none" : "block";
+  if(results.length<total) $("#watchHint").innerHTML = `<span class="spin"></span> 照合中… ${results.length}/${total}`;
+  $("#watchCards").innerHTML = sorted.map(({it,p})=>{
+    const img = p&&p.image?`style="background-image:url('${esc(p.image)}')"`:"";
+    let badge, when;
+    if(!p){
+      badge = `<span class="badge b-mon">⚪ Target 未登録</span>`;
+      when  = `<div class="meta">まだ商品DBに出ていません（これから登録＝ドロップ前の可能性）</div>`;
+    } else if(p.streetDate){
+      const n = daysUntil(p.streetDate);
+      badge = `<span class="badge ${n!==null&&n<=1?"b-soon":"b-window"}">🗓 発売 ${esc(fmtDate(p.streetDate))}</span>`;
+      when  = `<div class="whenline">🗓 ${esc(fmtDate(p.streetDate))}</div><div class="cd">⏳ ${esc(countdownLabel(p.streetDate).txt)}</div>`;
+    } else if(p.price){
+      badge = `<span class="badge b-live">🟢 販売中 ${esc(p.price)}</span>`;
+      when  = `<div class="meta">発売日の記載なし（すでに販売中）</div>`;
+    } else {
+      badge = `<span class="badge b-soon">🟡 登録済・未発売</span>`;
+      when  = `<div class="meta">商品登録あり／価格未設定＝発売前</div>`;
+    }
+    const hot = p && p.streetDate && daysUntil(p.streetDate)!==null && daysUntil(p.streetDate)<=1;
+    return `<div class="card ${hot?"hot":""}">
+      <div class="top">
+        <div class="thumb" ${img}>${p&&p.image?"":"🧸"}</div>
+        <div>
+          <h3>${esc((p&&p.title)||it.name||it.dpci)}</h3>
+          ${when}
+          <div class="meta">DPCI ${esc(it.dpci)}${p&&p.tcin?" ・ TCIN "+esc(p.tcin):""}</div>
+        </div>
+      </div>
+      <div class="badges"><span class="badge b-target">Target</span>${badge}</div>
+      <div class="foot">
+        <a class="lnk" href="${p&&p.buyUrl?esc(p.buyUrl):"https://www.target.com/s/"+encodeURIComponent(it.dpci)}" target="_blank" rel="noopener">Target →</a>
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function scanSortKey(it){ const n=daysUntil(it.streetDate); return n===null?99999:(n<0?90000-n:n); }
 function renderScan(){
   const known = new Set(allDrops().map(d=>String(d.tcin||"")).filter(Boolean));
@@ -673,6 +771,7 @@ $("#autoChk").onchange = e=>{ if(e.target.checked){ timer=setInterval(refreshLiv
   render();
   await probeApi();
   if(state.apiOk){ resolveStore(); refreshLive(); scan(); } // 5ブランドを自動スキャン
+  loadWatchlist(); // 店舗 Line listing の DPCI を照合
 })();
 </script>
 </body>
