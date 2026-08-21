@@ -168,28 +168,59 @@ Redsky の `key` は target.com フロントに埋め込まれた公開キーで
 |---|---|
 | [`watchlist.json`](./watchlist.json) | 監視する DPCI と ZIP。ここに行を足すだけで対象追加 |
 | [`scripts/check-drops.mjs`](./scripts/check-drops.mjs) | DPCI→商品解決、発売日/在庫/購入可否の変化検出、メール本文生成 |
-| [`.github/workflows/drop-watch.yml`](./.github/workflows/drop-watch.yml) | 定期実行 + メール送信 + 状態コミット |
-| `state/drop-state.json` | 前回状態（自動生成・自動コミット）。同じ事象を二重通知しないため |
+| [`scripts/watch-local.sh`](./scripts/watch-local.sh) | **Mac 常駐用ランナー**。検知したら GitHub Issue を作成 |
+| [`scripts/install-mac.sh`](./scripts/install-mac.sh) | launchd への登録 / 解除 / 状態確認 |
+| [`.github/workflows/drop-watch.yml`](./.github/workflows/drop-watch.yml) | 手動実行用（定期実行は後述の理由で停止中） |
+| `state/drop-state.json` | 前回状態（自動生成・端末ローカル）。同じ事象を二重通知しないため |
 
 **通知の条件**（いずれか）
 - `street date`（発売日）が **今日 or 明日** になった
 - 最寄り店舗の在庫が **無 → 有** に変わった
 - オンラインで **購入不可 → 可** に変わった
 
-**実行タイミング**: 6:00–10:00 PT を15分間隔（ドロップは開店8時前後に反映されるため）＋ 前夜1回。
-GitHub のスケジュール実行は混雑時に数分遅れることがあります。
+### なぜ Mac 常駐なのか（重要）
 
-**通知方法（セットアップ不要）**: 検知するとワークフローが **GitHub Issue** を立て、リポジトリオーナーを assignee にします。GitHub が Issue の通知メールを送るため、**Secrets の登録もアプリパスワードも不要**です。届かない場合は GitHub の Settings → Notifications でメール通知が有効か確認してください。
+Target は **データセンターIP からの商品API アクセスを CAPTCHA で拒否**します。実測結果:
 
-**任意の Secrets**（Settings → Secrets and variables → Actions）
-
-| Secret | 内容 |
+| 経路 | 結果 |
 |---|---|
-| `MAIL_TO` / `MAIL_SERVER` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | 指定した場合のみ、Issue に加えて HTML メールも直接送る（Gmail は**アプリ パスワード**） |
-| `TARGET_REDSKY_KEY` | Redsky 公開キーが失効したとき差し替え |
-| `TARGET_STORE_ID` | 監視店舗を固定したいとき |
+| Redsky API ← Vercel | ❌ HTTP 403 |
+| Redsky API ← GitHub Actions ランナー | ❌ HTTP 403 + `captchaRelativeURL` |
+| target.com HTML ← GitHub Actions | ✅ 200 だが**商品データは含まれない**（Next.js の外枠のみ） |
+| Redsky API ← 自宅回線のブラウザ | ✅ 正常 |
 
-Actions タブ → Drop Watch → **Run workflow** で即時テストできます。監視が壊れた場合は前夜の実行だけがジョブ失敗となり、GitHub から通知が届きます（15分ごとに失敗通知が飛ばないようにするため）。
+つまりサーバー側の定期実行は成立しません（CAPTCHA を回避する実装はしません）。そのため **GitHub Actions の定期実行は停止**してあり、監視は**自宅回線の Mac から**実行します。Target 側の状況が変わったか確認したいときは、Actions タブの **Probe Target reachability** を手動実行してください。
+
+### Mac へのインストール
+
+```bash
+brew install gh          # 未インストールなら
+gh auth login            # 未ログインなら（ブラウザで認証・一度きり）
+bash scripts/install-mac.sh
+```
+
+launchd の LaunchAgent として登録され、15分おきに起動して**朝 6:00–10:00 の間だけ** Target を確認します（ドロップは開店8時前後に反映されるため）。インストール時に動作テストが1回走ります。
+
+| コマンド | 用途 |
+|---|---|
+| `bash scripts/install-mac.sh --status` | 常駐状態と直近ログ |
+| `bash scripts/install-mac.sh --remove` | 常駐を解除 |
+| `DROPWATCH_FORCE=1 scripts/watch-local.sh` | 時間帯を無視して手動実行 |
+| `tail -f state/dropwatch.log` | ログを追う |
+
+時間帯は `DROPWATCH_START` / `DROPWATCH_END`（時、0–23）で変更できます。
+
+> **Mac がスリープしていると実行されません。** システム設定 → ロック画面 で、電源接続時にスリープしない設定にしておくと確実です。
+
+**通知の受け取り**: 検知すると `drop-alert` ラベル付きの **GitHub Issue** が立ち、自分が assignee になるので GitHub の通知メールが届きます。**新しい資格情報は不要**です。届かない場合は GitHub の Settings → Notifications でメール通知が有効か確認してください。
+
+**任意の環境変数 / Secrets**
+
+| 名前 | 内容 |
+|---|---|
+| `TARGET_REDSKY_KEY` | Redsky 公開キーが失効したとき差し替え |
+| `TARGET_STORE_ID` | 監視店舗を固定したいとき（未指定なら ZIP から最寄り店舗を解決） |
+| `MAIL_*`（Actions のみ・任意） | SMTP を登録した場合、Actions 実行時に HTML メールも直接送る |
 
 ### ローカル確認の注意
 `npm start`（静的配信）では `api/` のサーバー関数が動かないため、Target 自動監視は無効化され、ページ上部に案内バナーが出ます。監視まで含めて確認するには Vercel にデプロイするか `vercel dev` を使ってください。カレンダー表示・フィルタ・自分用ドロップ追加（端末内 localStorage 保存）は静的環境でも動作します。
