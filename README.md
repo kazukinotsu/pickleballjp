@@ -178,20 +178,28 @@ Redsky の `key` は target.com フロントに埋め込まれた公開キーで
 - 最寄り店舗の在庫が **無 → 有** に変わった
 - オンラインで **購入不可 → 可** に変わった
 
-### なぜ Mac 常駐なのか（重要）
+### Redsky 呼び出しの作法（重要）
 
-Target は **データセンターIP からの商品API アクセスを CAPTCHA で拒否**します。実測結果:
+一時期 403 + CAPTCHA で全滅していましたが、原因は **`Origin` / `Referer` の偽装**でした。ブラウザでないクライアントが `Origin: https://www.target.com` を送ると Akamai に検知されます。実測:
 
-| 経路 | 結果 |
+| リクエスト | 結果 |
 |---|---|
-| Redsky API ← Vercel | ❌ HTTP 403 |
-| Redsky API ← GitHub Actions ランナー | ❌ HTTP 403 + `captchaRelativeURL` |
-| target.com HTML ← GitHub Actions | ✅ 200 だが**商品データは含まれない**（Next.js の外枠のみ） |
-| Redsky API ← 自宅回線のブラウザ | ✅ 正常 |
+| `Origin` / `Referer` を付ける | ❌ 403 + `captchaRelativeURL` |
+| **`Accept` のみ（偽装しない）** | ✅ 200 |
 
-つまりサーバー側の定期実行は成立しません（CAPTCHA を回避する実装はしません）。そのため **GitHub Actions の定期実行は停止**してあり、監視は**自宅回線の Mac から**実行します。Target 側の状況が変わったか確認したいときは、Actions タブの **Probe Target reachability** を手動実行してください。
+そのため `check-drops.mjs` は**偽装ヘッダを送りません**。GitHub Actions のランナーからも正常に取得できます（IP は関係ありませんでした）。
 
-### Mac へのインストール
+**必須の GraphQL 変数**: 欠けると 400 になります。
+- `plp_search_v2` … `pricing_store_id`, `visitor_id`
+- `pdp_client_v1` … `pricing_store_id`
+
+**DPCI は直接検索できません**（無関係な商品が返る）。検索結果には `item.dpci` が含まれるので、`searchKeywords` のブランド名で広く検索し、DPCI で突き合わせています。監視対象のブランドが増えたら `watchlist.json` の `searchKeywords` に足してください。
+
+取得可否を再確認したいときは Actions タブの **Probe Target reachability** を手動実行してください（必要変数を自動探索して結果を出します）。
+
+### Mac 常駐（任意）
+
+GitHub Actions の定期実行だけで完結するため、通常は不要です。手元でも動かしたい場合のみ:
 
 ```bash
 brew install gh          # 未インストールなら
