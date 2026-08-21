@@ -2,3 +2,5 @@ node_modules/
 package-lock.json
 # Drop Watch がメール本文を書き出す一時ディレクトリ（コミット不要）
 out/
+# Mac 常駐版の監視状態とログ。端末ごとに持つのでコミットしない
+state/
