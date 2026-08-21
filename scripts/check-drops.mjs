@@ -240,6 +240,33 @@ function buildEmail(hits, meta) {
 const esc = (s) => String(s == null ? "" : s)
   .replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// GitHub Issue 用の本文。Issue を立てると GitHub が通知メールを送ってくれるので、
+// SMTP の秘密情報を一切登録せずにメール通知が成立する。
+function buildIssueMarkdown(hits, meta) {
+  const lines = [
+    `**監視店舗**: ${meta.storeName || meta.storeId} (${meta.storeId})`,
+    `**検知時刻**: ${meta.checkedAt}`,
+    "",
+    "| 商品 | 検知した変化 | DPCI / TCIN | 価格 |",
+    "| --- | --- | --- | --- |",
+  ];
+  for (const { item, status, events } of hits) {
+    const name = status.url
+      ? `[${status.title || item.name || item.dpci}](${status.url})`
+      : (status.title || item.name || item.dpci);
+    lines.push(
+      `| ${name} | ${events.map((e) => e.label).join("<br>")} | ${status.dpci || item.dpci}` +
+      `${status.tcin ? ` / ${status.tcin}` : ""} | ${status.price || "—"} |`
+    );
+  }
+  lines.push(
+    "",
+    "<sub>Target の公開商品API(Redsky)で street date・店舗在庫・購入可否の変化を検出しています。",
+    "同じ事象は再通知しません。監視リストは `watchlist.json` で編集できます。</sub>"
+  );
+  return lines.join("\n");
+}
+
 function setOutput(k, v) {
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`);
   console.log(`::set-var:: ${k}=${v}`);
@@ -343,6 +370,9 @@ async function main() {
     });
     fs.writeFileSync(path.join(OUT_DIR, "subject.txt"), subject);
     fs.writeFileSync(path.join(OUT_DIR, "email.html"), html);
+    fs.writeFileSync(path.join(OUT_DIR, "issue.md"), buildIssueMarkdown(hits, {
+      storeId, storeName, checkedAt: new Date().toLocaleString("ja-JP", { timeZone: TZ }),
+    }));
   }
 
   setOutput("alert", hits.length ? "true" : "false");
