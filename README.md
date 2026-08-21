@@ -179,17 +179,17 @@ Redsky の `key` は target.com フロントに埋め込まれた公開キーで
 **実行タイミング**: 6:00–10:00 PT を15分間隔（ドロップは開店8時前後に反映されるため）＋ 前夜1回。
 GitHub のスケジュール実行は混雑時に数分遅れることがあります。
 
-**セットアップ**: リポジトリの Settings → Secrets and variables → Actions に登録
+**通知方法（セットアップ不要）**: 検知するとワークフローが **GitHub Issue** を立て、リポジトリオーナーを assignee にします。GitHub が Issue の通知メールを送るため、**Secrets の登録もアプリパスワードも不要**です。届かない場合は GitHub の Settings → Notifications でメール通知が有効か確認してください。
+
+**任意の Secrets**（Settings → Secrets and variables → Actions）
 
 | Secret | 内容 |
 |---|---|
-| `MAIL_TO` | 受信アドレス |
-| `MAIL_SERVER` / `MAIL_PORT` | 例 `smtp.gmail.com` / `465` |
-| `MAIL_USERNAME` / `MAIL_PASSWORD` | Gmail の場合は**アプリ パスワード**（通常のログインパスワード不可） |
-| `TARGET_REDSKY_KEY`（任意） | Redsky 公開キーが失効したとき差し替え |
-| `TARGET_STORE_ID`（任意） | 監視店舗を固定したいとき |
+| `MAIL_TO` / `MAIL_SERVER` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | 指定した場合のみ、Issue に加えて HTML メールも直接送る（Gmail は**アプリ パスワード**） |
+| `TARGET_REDSKY_KEY` | Redsky 公開キーが失効したとき差し替え |
+| `TARGET_STORE_ID` | 監視店舗を固定したいとき |
 
-登録後、Actions タブから **Run workflow** で即時テストできます。監視が壊れた場合は前夜の実行だけがジョブ失敗となり、GitHub から通知が届きます（15分ごとに失敗通知が飛ばないようにするため）。
+Actions タブ → Drop Watch → **Run workflow** で即時テストできます。監視が壊れた場合は前夜の実行だけがジョブ失敗となり、GitHub から通知が届きます（15分ごとに失敗通知が飛ばないようにするため）。
 
 ### ローカル確認の注意
 `npm start`（静的配信）では `api/` のサーバー関数が動かないため、Target 自動監視は無効化され、ページ上部に案内バナーが出ます。監視まで含めて確認するには Vercel にデプロイするか `vercel dev` を使ってください。カレンダー表示・フィルタ・自分用ドロップ追加（端末内 localStorage 保存）は静的環境でも動作します。

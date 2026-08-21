@@ -3,15 +3,14 @@ name: Drop Watch (Target)
 # 近くの Target 1店舗について、watchlist.json の DPCI を定期チェックし、
 # 発売日が今日/明日になった・店舗在庫が付いた・購入可能になった商品をメール通知する。
 #
-# 必要な Secrets (Settings > Secrets and variables > Actions):
-#   MAIL_TO        受信アドレス
-#   MAIL_SERVER    SMTP ホスト (例: smtp.gmail.com)
-#   MAIL_PORT      SMTP ポート (例: 465)
-#   MAIL_USERNAME  SMTP ユーザー (Gmail ならアドレス)
-#   MAIL_PASSWORD  SMTP パスワード (Gmail は「アプリ パスワード」)
-# 任意の Secrets:
-#   TARGET_REDSKY_KEY  Redsky 公開キーが失効したとき差し替える
-#   TARGET_STORE_ID    監視店舗を固定したいとき
+# 通知は既定で GitHub Issue を立てる方式。GitHub が Issue の通知メールを送るため、
+# Secrets の登録は不要（リポジトリの通知設定が有効であればメールが届く）。
+#
+# 任意の Secrets (Settings > Secrets and variables > Actions):
+#   MAIL_TO / MAIL_SERVER / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD
+#                      … 指定した場合のみ、Issue に加えて HTML メールも直接送る
+#   TARGET_REDSKY_KEY  … Redsky 公開キーが失効したとき差し替える
+#   TARGET_STORE_ID    … 監視店舗を固定したいとき
 
 on:
   schedule:
@@ -31,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     env:
       ALERT_TZ: America/Los_Angeles
       TARGET_REDSKY_KEY: ${{ secrets.TARGET_REDSKY_KEY }}
@@ -53,6 +53,22 @@ jobs:
         run: |
           echo "subject=$(cat out/subject.txt)" >> "$GITHUB_OUTPUT"
 
+      # 既定の通知経路。Issue を立てると GitHub が通知メールを送るので、
+      # SMTP の Secrets を一切登録せずにメールが届く。
+      - name: Open drop alert issue
+        if: steps.check.outputs.alert == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create drop-alert --color FF69B4 \
+            --description "Target drop detected" --force || true
+          gh issue create \
+            --title "$(cat out/subject.txt)" \
+            --body-file out/issue.md \
+            --label drop-alert \
+            --assignee "${{ github.repository_owner }}"
+
+      # 任意。SMTP の Secrets を登録した場合のみ、HTML メールも直接送る。
       - name: Send drop alert
         if: steps.check.outputs.alert == 'true' && env.HAS_MAIL == 'true'
         uses: dawidd6/action-send-mail@v3
