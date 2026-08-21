@@ -159,5 +159,37 @@ Squeezy・NeeDoh・Smushmart・Smusher・RMS Dumplings の新作・限定ドロ�
 ### Target APIキー
 Redsky の `key` は target.com フロントに埋め込まれた公開キーで、定期的にローテーションされます。失効したら Vercel の環境変数 **`TARGET_REDSKY_KEY`** に最新の公開キーを設定してください（未設定時はコード内フォールバックを使用）。
 
+### DPCI 監視 + メール通知（Drop Watch）
+
+店舗の Line listing で見える **DPCI**（Target の商品番号 例 `086-03-3602`）を登録しておくと、
+**近くの Target 1店舗**について発売タイミングを自動監視し、条件を満たしたらメールが飛びます。
+
+| ファイル | 役割 |
+|---|---|
+| [`watchlist.json`](./watchlist.json) | 監視する DPCI と ZIP。ここに行を足すだけで対象追加 |
+| [`scripts/check-drops.mjs`](./scripts/check-drops.mjs) | DPCI→商品解決、発売日/在庫/購入可否の変化検出、メール本文生成 |
+| [`.github/workflows/drop-watch.yml`](./.github/workflows/drop-watch.yml) | 定期実行 + メール送信 + 状態コミット |
+| `state/drop-state.json` | 前回状態（自動生成・自動コミット）。同じ事象を二重通知しないため |
+
+**通知の条件**（いずれか）
+- `street date`（発売日）が **今日 or 明日** になった
+- 最寄り店舗の在庫が **無 → 有** に変わった
+- オンラインで **購入不可 → 可** に変わった
+
+**実行タイミング**: 6:00–10:00 PT を15分間隔（ドロップは開店8時前後に反映されるため）＋ 前夜1回。
+GitHub のスケジュール実行は混雑時に数分遅れることがあります。
+
+**セットアップ**: リポジトリの Settings → Secrets and variables → Actions に登録
+
+| Secret | 内容 |
+|---|---|
+| `MAIL_TO` | 受信アドレス |
+| `MAIL_SERVER` / `MAIL_PORT` | 例 `smtp.gmail.com` / `465` |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | Gmail の場合は**アプリ パスワード**（通常のログインパスワード不可） |
+| `TARGET_REDSKY_KEY`（任意） | Redsky 公開キーが失効したとき差し替え |
+| `TARGET_STORE_ID`（任意） | 監視店舗を固定したいとき |
+
+登録後、Actions タブから **Run workflow** で即時テストできます。監視が壊れた場合は前夜の実行だけがジョブ失敗となり、GitHub から通知が届きます（15分ごとに失敗通知が飛ばないようにするため）。
+
 ### ローカル確認の注意
 `npm start`（静的配信）では `api/` のサーバー関数が動かないため、Target 自動監視は無効化され、ページ上部に案内バナーが出ます。監視まで含めて確認するには Vercel にデプロイするか `vercel dev` を使ってください。カレンダー表示・フィルタ・自分用ドロップ追加（端末内 localStorage 保存）は静的環境でも動作します。
