@@ -158,6 +158,7 @@ for (const hs of HEADER_SETS) {
 // --- 店舗在庫の取得先を特定する ----------------------------------------------
 // pdp_fulfillment_v1 は HTTP 410 (Gone) で廃止済みと判明。
 // (a) 商品詳細に在庫が同梱されていないか、(b) 現行のエンドポイント名は何か、を実測する。
+const gp = (o, path) => path.split(".").reduce((a, k) => (a == null ? undefined : a[k]), o);
 console.log("\n===== 在庫データの所在を特定 =====");
 {
   const TCIN = "94619823"; // NeeDoh Fuzz Ball
