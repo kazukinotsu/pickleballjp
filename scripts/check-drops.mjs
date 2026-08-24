@@ -88,7 +88,16 @@ function missingVars(json) {
   return [...new Set(out)];
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let lastCallAt = 0;
+
 async function redskyRaw(endpoint, params) {
+  // 短時間に連投すると Akamai の bot 判定で 403 + CAPTCHA になる（実測）。
+  // 最低 400ms は間隔を空ける。
+  const wait = 400 - (Date.now() - lastCallAt);
+  if (wait > 0) await sleep(wait);
+  lastCallAt = Date.now();
+
   const qs = new URLSearchParams({ key: KEY, ...params }).toString();
   // ブラウザでないのに Origin/Referer を偽装して送ると Akamai に 403 + CAPTCHA で
   // 弾かれる（実測済み）。素直に Accept だけ送ると GraphQL 層まで通る。
@@ -167,12 +176,9 @@ async function pdp(tcin) {
   return gp(j, "data.product") || null;
 }
 
-async function fulfillment(tcin) {
-  const j = await redsky("pdp_fulfillment_v1", {
-    tcin, channel: "WEB", page: `/p/A-${tcin}`,
-  });
-  return gp(j, "data.product.fulfillment") || null;
-}
+// 店舗在庫の取得はここにあった pdp_fulfillment_v1 が HTTP 410 で廃止されたため削除。
+// 代替エンドポイントは未特定（候補調査は Akamai のブロックに巻き込まれ結論が出ていない）。
+// 見つかるまで「在庫が付いた」の検知は無効。
 
 // --- 状態判定 ---------------------------------------------------------------
 
@@ -359,6 +365,16 @@ async function main() {
   console.log(`索引: ${byDpci.size}件の DPCI を ${keywords.length}キーワードから収集` +
     (kwErrors.length ? ` (失敗 ${kwErrors.length}: ${kwErrors[0]})` : ""));
 
+  // 索引が丸ごと空＝Akamai にブロックされた等の異常。ここで打ち切らないと、
+  // 各商品を notFound で上書きして解決済みの TCIN を消してしまう。
+  if (byDpci.size === 0 && kwErrors.length) {
+    console.error(`‼ 検索が全滅したため今回は状態を更新しません: ${kwErrors[0]}`);
+    setOutput("alert", "false");
+    setOutput("error", "true");
+    setOutput("count", "0");
+    return;
+  }
+
   for (const item of cfg.items) {
     const key = digits(item.dpci);
     const prev = state.items[key] || null;
@@ -366,19 +382,32 @@ async function main() {
       // 索引に居ればその TCIN、無ければ前回解決した TCIN を使う
       const found = byDpci.get(key) || null;
       let tcin = (found && (found.tcin || gp(found, "item.tcin"))) || prev?.tcin || null;
+
+      // PDP は street_date を得るためだけに必要で、1件1リクエストかかる。
+      // 全件に投げると Akamai のレート制限に触れるので、意味がある場合だけ引く:
+      //   ・まだ購入できない（＝これから発売＝street_date が入りうる）
+      //   ・今回はじめて解決した（基準値がまだ無い）
+      //   ・前回 street_date を持っていた（変化を追う必要がある）
+      const needPdp = !prev || prev.purchasable === false || !!prev.streetDate;
       let product = null;
-      if (tcin) {
-        product = await pdp(tcin).catch(() => null);
-        if (!product && found) product = found;
-      }
+      if (tcin && needPdp) product = await pdp(tcin).catch(() => null);
+      if (!product && found) product = found;   // 検索結果には価格と dpci が入っている
+
       if (!product) {
-        // まだ Target 側に出ていない＝これから登録される可能性がある
-        state.items[key] = { ...(prev || {}), dpci: item.dpci, name: item.name, notFound: true, checkedAt: new Date().toISOString() };
+        if (prev && !prev.notFound) {
+          // 一時的に引けなかっただけ。解決済みの情報を消さずに温存する。
+          failures.push(`${item.dpci}: 今回は取得できず（前回の状態を維持）`);
+          state.items[key] = { ...prev, checkedAt: new Date().toISOString() };
+        } else {
+          // まだ Target 側に出ていない＝これから登録される可能性がある
+          state.items[key] = { ...(prev || {}), dpci: item.dpci, name: item.name, notFound: true, checkedAt: new Date().toISOString() };
+        }
         continue;
       }
 
-      const ful = tcin ? await fulfillment(tcin).catch(() => null) : null;
-      const status = readStatus(product, ful);
+      // 店舗在庫: pdp_fulfillment_v1 は HTTP 410 で廃止済み。代替は未特定のため
+      // 「在庫が付いた」の検知は現在無効。発売日と購入可否の2条件で運用する。
+      const status = readStatus(product, null);
       const events = detectEvents(prev, status, today, tomorrow);
 
       if (events.length) hits.push({ item, status, events });
