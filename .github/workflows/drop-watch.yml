@@ -22,7 +22,12 @@ on:
     - cron: "*/15 13-17 * * *"
     # 前夜にも1回。翌日の street date が入った時点で「明日発売」を捕まえる
     - cron: "0 2 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "通知テスト: 検知なしでテスト用 Issue を立てて、メールが届くか確かめる"
+        type: boolean
+        default: false
 
 concurrency:
   group: drop-watch
@@ -45,6 +50,36 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      # 通知経路の自己テスト。Issue を「自分で」立てると GitHub は自分宛の通知を
+      # 送らないため、本番と同じく github-actions[bot] に立てさせて確かめる。
+      - name: Notification self-test
+        if: inputs.test_notification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create drop-alert --color FF69B4 \
+            --description "Target drop detected" --force || true
+          gh issue create \
+            --title "🧪 [テスト] Drop Watch 通知テスト（bot発行）" \
+            --label drop-alert \
+            --assignee "${{ github.repository_owner }}" \
+            --body "$(cat <<'BODY'
+          これは通知経路の確認用テストです。実際のドロップ検知ではありません。
+
+          この Issue は本番と同じく **github-actions[bot]** が作成し、あなたを assignee に
+          設定しています。**このメールが届けば、実際のドロップ時も同じように届きます。**
+
+          確認できたらこの Issue は閉じてかまいません。
+
+          届かない場合の確認箇所:
+          1. GitHub > Settings > Notifications > **Email** が有効か
+          2. 同ページの **Participating** に Email のチェックが入っているか
+          3. GitHub > Settings > Emails に登録されているアドレスはどれか
+             (通知はそのアドレスに届きます)
+          4. 迷惑メールに notifications@github.com が入っていないか
+          BODY
+          )"
 
       - name: Check drops
         id: check
