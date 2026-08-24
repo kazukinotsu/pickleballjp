@@ -155,24 +155,51 @@ for (const hs of HEADER_SETS) {
   }
 }
 
-// --- 店舗在庫(fulfillment)の応答構造を確認する -------------------------------
-// state 上で storeStatus が全件 null になっているため、
-// pdp_fulfillment_v1 が本当にデータを返しているのかを実測する。
-console.log("\n===== fulfillment 構造確認 =====");
+// --- 店舗在庫の取得先を特定する ----------------------------------------------
+// pdp_fulfillment_v1 は HTTP 410 (Gone) で廃止済みと判明。
+// (a) 商品詳細に在庫が同梱されていないか、(b) 現行のエンドポイント名は何か、を実測する。
+console.log("\n===== 在庫データの所在を特定 =====");
 {
-  const TCIN = "94619823"; // NeeDoh Fuzz Ball（解決済みの実在 TCIN）
-  const r = await resolve("pdp_fulfillment_v1",
-    { tcin: TCIN, channel: "WEB", page: `/p/A-${TCIN}` }, {}, `在庫(tcin=${TCIN})`);
-  if (r) {
-    const ful = gp(r.json, "data.product.fulfillment");
-    console.log("   成立パラメータ:", Object.keys(r.params).join(", "));
-    console.log("   data.product のキー:", Object.keys(gp(r.json, "data.product") || {}).join(", "));
-    console.log("   fulfillment:", ful ? Object.keys(ful).join(", ") : "なし");
-    const so = ful?.store_options;
-    console.log("   store_options:", Array.isArray(so) ? `${so.length}件` : typeof so);
-    if (Array.isArray(so) && so.length) {
-      console.log("   store_options[0]:", JSON.stringify(so[0]).slice(0, 600));
+  const TCIN = "94619823"; // NeeDoh Fuzz Ball
+  // (a) pdp_client_v1 が既に在庫を含んでいないか
+  const pdp = await resolve("pdp_client_v1",
+    { tcin: TCIN, channel: "WEB", page: `/p/A-${TCIN}` }, {}, "商品詳細の中身");
+  if (pdp) {
+    const prod = gp(pdp.json, "data.product") || {};
+    console.log("   data.product のキー:", Object.keys(prod).join(", "));
+    const blob = JSON.stringify(prod);
+    for (const k of ["fulfillment", "store_options", "available_to_promise",
+                     "location_available_to_promise_quantity", "availability_status"]) {
+      console.log(`   "${k}" を含む: ${blob.includes(k) ? "はい" : "いいえ"}`);
     }
-    if (ful) console.log("   fulfillment 全体(先頭800字):", JSON.stringify(ful).slice(0, 800));
+    if (prod.fulfillment) {
+      console.log("   fulfillment:", JSON.stringify(prod.fulfillment).slice(0, 700));
+    }
+  }
+
+  // (b) 在庫系エンドポイントの候補を総当たりし、生きているものを探す
+  console.log("\n   -- エンドポイント候補の生存確認 --");
+  const CANDIDATES = [
+    "pdp_fulfillment_v1", "pdp_fulfillment_v2",
+    "product_fulfillment_v1", "product_fulfillment_v2",
+    "fulfillment_aggregator_v1", "pdp_fulfillment_aggregator_v1",
+    "product_summary_with_fulfillment_v1", "pdp_summary_v1",
+  ];
+  for (const ep of CANDIDATES) {
+    try {
+      const r = await call(ep, { key: KEY, tcin: TCIN, channel: "WEB",
+        page: `/p/A-${TCIN}`, pricing_store_id: STORE, store_id: STORE,
+        visitor_id: VISITOR, zip: ZIP, required_store_id: STORE,
+        has_required_store_id: "true" }, {});
+      const verdict = r.status === 410 ? "廃止 (410)"
+        : r.status === 404 ? "存在しない (404)"
+        : r.status === 200 ? "✅ 生存 (200)"
+        : `${r.status}`;
+      const note = r.json?.errors?.[0]?.message
+        ? ` — ${r.json.errors[0].message.slice(0, 90)}` : "";
+      console.log(`   ${ep}: ${verdict}${note}`);
+    } catch (e) {
+      console.log(`   ${ep}: 例外 ${e.message}`);
+    }
   }
 }
