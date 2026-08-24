@@ -154,3 +154,25 @@ for (const hs of HEADER_SETS) {
     }
   }
 }
+
+// --- 店舗在庫(fulfillment)の応答構造を確認する -------------------------------
+// state 上で storeStatus が全件 null になっているため、
+// pdp_fulfillment_v1 が本当にデータを返しているのかを実測する。
+console.log("\n===== fulfillment 構造確認 =====");
+{
+  const TCIN = "94619823"; // NeeDoh Fuzz Ball（解決済みの実在 TCIN）
+  const r = await resolve("pdp_fulfillment_v1",
+    { tcin: TCIN, channel: "WEB", page: `/p/A-${TCIN}` }, {}, `在庫(tcin=${TCIN})`);
+  if (r) {
+    const ful = gp(r.json, "data.product.fulfillment");
+    console.log("   成立パラメータ:", Object.keys(r.params).join(", "));
+    console.log("   data.product のキー:", Object.keys(gp(r.json, "data.product") || {}).join(", "));
+    console.log("   fulfillment:", ful ? Object.keys(ful).join(", ") : "なし");
+    const so = ful?.store_options;
+    console.log("   store_options:", Array.isArray(so) ? `${so.length}件` : typeof so);
+    if (Array.isArray(so) && so.length) {
+      console.log("   store_options[0]:", JSON.stringify(so[0]).slice(0, 600));
+    }
+    if (ful) console.log("   fulfillment 全体(先頭800字):", JSON.stringify(ful).slice(0, 800));
+  }
+}
