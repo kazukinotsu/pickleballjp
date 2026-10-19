@@ -4,19 +4,19 @@
       "dpci": "086-03-3602",
       "name": "Squeeezy Dachshund",
       "notFound": true,
-      "checkedAt": "2026-10-17T06:33:07.460Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086030121": {
       "dpci": "086-03-0121",
       "name": "Squeezy Game C…",
       "notFound": true,
-      "checkedAt": "2026-10-17T06:33:07.460Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086034962": {
       "dpci": "086-03-4962",
       "name": "Squeeezy Hyland…",
       "notFound": true,
-      "checkedAt": "2026-10-17T06:33:07.460Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086009273": {
       "dpci": "086-00-9273",
@@ -30,7 +30,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086030253": {
       "dpci": "086-03-0253",
@@ -44,7 +44,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086000383": {
       "dpci": "086-00-0383",
@@ -58,7 +58,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086033182": {
       "dpci": "086-03-3182",
@@ -72,7 +72,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086039511": {
       "dpci": "086-03-9511",
@@ -86,7 +86,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086039292": {
       "dpci": "086-03-9292",
@@ -100,7 +100,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086039018": {
       "dpci": "086-03-9018",
@@ -114,7 +114,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086034873": {
       "dpci": "086-03-4873",
@@ -128,7 +128,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086030648": {
       "dpci": "086-03-0648",
@@ -142,7 +142,7 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086030252": {
       "dpci": "086-03-0252",
@@ -156,61 +156,69 @@
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086033764": {
       "dpci": "086-03-3764",
       "name": "Sunny Days Jumb…",
       "notFound": true,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086030347": {
       "dpci": "086-03-0347",
       "name": "RMS USA - Myste…",
-      "notFound": true,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "tcin": "95253515",
+      "title": "RMS Mystery Squishy Dumpling Fidget Toy",
+      "price": "$4.99",
+      "streetDate": null,
+      "purchasable": true,
+      "storeAvailable": false,
+      "storeStatus": null,
+      "storeQty": null,
+      "alertedStreet": null,
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086031476": {
       "dpci": "086-03-1476",
       "name": "Kool-Aid Squishi…",
       "tcin": "94807522",
       "title": "Kool-Aid Squishi Scented Man",
-      "price": "$4.99",
+      "price": "$5.99",
       "streetDate": null,
       "purchasable": true,
       "storeAvailable": false,
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086031516": {
       "dpci": "086-03-1516",
       "name": "Hershey's S…",
       "tcin": "95005224",
       "title": "HERSHEY&#39;S Squishi Scented",
-      "price": "$4.99",
+      "price": "$5.99",
       "streetDate": null,
       "purchasable": true,
       "storeAvailable": false,
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086033343": {
       "dpci": "086-03-3343",
       "name": "Jell-O Squishi Jig…",
       "tcin": "95005226",
       "title": "Jell-O Squishi Jiggle Cube",
-      "price": "$4.99",
+      "price": "$5.99",
       "streetDate": null,
       "purchasable": true,
       "storeAvailable": false,
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.461Z"
+      "checkedAt": "2026-10-19T18:58:39.253Z"
     },
     "086035794": {
       "dpci": "086-03-5794",
@@ -219,12 +227,12 @@
       "title": "Sticker Therapy 80 Kawaii Kitties Foil Bag Intermediate Series 1",
       "price": "$2.99",
       "streetDate": null,
-      "purchasable": false,
+      "purchasable": true,
       "storeAvailable": false,
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:07.866Z"
+      "checkedAt": "2026-10-19T18:58:40.209Z"
     },
     "086030227": {
       "dpci": "086-03-0227",
@@ -233,12 +241,12 @@
       "title": "ORB Charmlets Array",
       "price": "$4.99",
       "streetDate": null,
-      "purchasable": false,
+      "purchasable": true,
       "storeAvailable": false,
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:08.265Z"
+      "checkedAt": "2026-10-19T18:58:41.144Z"
     },
     "086030405": {
       "dpci": "086-03-0405",
@@ -247,12 +255,12 @@
       "title": "Clickeez S3 2pk CDU Fidget Toy",
       "price": "$4.99",
       "streetDate": null,
-      "purchasable": false,
+      "purchasable": true,
       "storeAvailable": false,
       "storeStatus": null,
       "storeQty": null,
       "alertedStreet": null,
-      "checkedAt": "2026-10-17T06:33:08.667Z"
+      "checkedAt": "2026-10-19T18:58:42.078Z"
     }
   },
   "storeId": "322",
