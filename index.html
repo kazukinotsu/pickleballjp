@@ -983,7 +983,7 @@ let editing = null;          // 編集モード時 { id, token }
 
 /* =================== Utils =================== */
 function escapeHtml(s){
-  return (s||"").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+  return String(s ?? "").replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
 }
 function linkify(text){
   if (!text) return "";
@@ -1017,11 +1017,11 @@ function levelLabel(v){
 function dayLabel(d){
   const map = {mon:["月","Mon"],tue:["火","Tue"],wed:["水","Wed"],thu:["木","Thu"],
                fri:["金","Fri"],sat:["土","Sat"],sun:["日","Sun"]};
-  return map[d] ? map[d][lang==="ja"?0:1] : d;
+  return map[d] ? map[d][lang==="ja"?0:1] : escapeHtml(String(d));
 }
 function timeLabel(t){
   const map = {morning:["朝","Morning"],day:["日中","Day"],evening:["夕方","Evening"],night:["夜","Night"]};
-  return map[t] ? map[t][lang==="ja"?0:1] : t;
+  return map[t] ? map[t][lang==="ja"?0:1] : escapeHtml(String(t));
 }
 
 /* =================== Country filter =================== */
@@ -1384,7 +1384,7 @@ function renderStats(){
 }
 
 function memberCard(m, distanceKm){
-  const initials = (m.name||"?").trim().slice(0,1).toUpperCase();
+  const initials = escapeHtml((m.name||"?").trim().slice(0,1).toUpperCase());
   const days = (m.days||[]).map(d=>`<span class="tag">${dayLabel(d)}</span>`).join("");
   const times = (m.times||[]).map(t=>`<span class="tag teal">${timeLabel(t)}</span>`).join("");
   const venuesHtml = (m.venues||[]).length
@@ -1564,7 +1564,8 @@ function renderMapMarkers(){
   let plotted = 0;
   members.forEach(m => {
     if (m.lat == null || m.lng == null) return;
-    const cls = "pickle-marker " + (m.level ? "lvl-" + m.level : "");
+    const lvl = ["beginner","intermediate","advanced"].includes(m.level) ? m.level : "";
+    const cls = "pickle-marker " + (lvl ? "lvl-" + lvl : "");
     const icon = L.divIcon({
       className: "pickle-marker-wrap",
       html: `<div class="${cls}"></div>`,

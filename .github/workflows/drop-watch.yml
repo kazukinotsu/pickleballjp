@@ -29,6 +29,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 concurrency:
   group: drop-watch
   cancel-in-progress: false
@@ -89,7 +92,8 @@ jobs:
         id: mail
         if: steps.check.outputs.alert == 'true'
         run: |
-          echo "subject=$(cat out/subject.txt)" >> "$GITHUB_OUTPUT"
+          # 1行目だけ使う（改行で GITHUB_OUTPUT に別キーを注入されないように）
+          echo "subject=$(head -n1 out/subject.txt | tr -d '\r')" >> "$GITHUB_OUTPUT"
 
       # 既定の通知経路。Issue を立てると GitHub が通知メールを送るので、
       # SMTP の Secrets を一切登録せずにメールが届く。

@@ -156,10 +156,14 @@ function normalizeSearchItem(p) {
 }
 
 module.exports = async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  // drops.html は同一オリジンから呼ぶので CORS は不要。"*" だと第三者サイトが
+  // この関数を Target への匿名プロキシとして使えてしまうため付けない。
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
-  if (req.method === "OPTIONS") return res.status(204).end();
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.setHeader("Allow", "GET, HEAD");
+    return res.status(405).json({ error: "method_not_allowed" });
+  }
 
   const q = req.query || {};
   const mode = (q.mode || "").toString().trim();
@@ -168,6 +172,13 @@ module.exports = async (req, res) => {
   const zip = (q.zip || "").toString().trim();
   const count = Math.min(parseInt(q.count, 10) || 24, 48);
   const debug = q.debug === "1" || q.debug === "true";
+  // 入力検証: 上流 URL のパラメータに入るので形式を固定する
+  if (tcin && !/^\d{1,12}$/.test(tcin))
+    return res.status(400).json({ error: "bad_param", hint: "tcin は数字のみ" });
+  if (zip && !/^\d{5}$/.test(zip))
+    return res.status(400).json({ error: "bad_param", hint: "zip は5桁の数字" });
+  if (keyword.length > 80 || /[\u0000-\u001f]/.test(keyword))
+    return res.status(400).json({ error: "bad_param", hint: "keyword が長すぎるか不正な文字を含みます" });
   // debug=1: Redsky の生応答の先頭を返す（原因調査用。キーは伏せる）
   const rawSnippet = (r) =>
     debug ? { raw: String(r.raw || "").slice(0, 1200) } : {};
@@ -241,6 +252,7 @@ module.exports = async (req, res) => {
 
     return res.status(400).json({ error: "missing_param", hint: "?mode=stores&zip=… / ?tcin=… / ?keyword=… を指定してください。" });
   } catch (e) {
-    return res.status(500).json({ error: "fetch_failed", message: String((e && e.message) || e) });
+    console.error("target-check failed:", e);
+    return res.status(500).json({ error: "fetch_failed" });
   }
 };

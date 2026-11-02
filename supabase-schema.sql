@@ -56,11 +56,9 @@ create policy "Public read published"
 -- Anyone can insert a new member (self-registration)
 -- The `is_published` column defaults to true; to enable moderation later,
 -- change the default to false and add an admin-only policy.
+-- 2026-10: 直接 INSERT は廃止。登録は register_member() RPC 経由のみ。
+-- （制約・権限の詳細は db/2026-10-security-rls.sql。新規構築時もこのファイルの後に実行）
 drop policy if exists "Public insert" on public.members;
-create policy "Public insert"
-  on public.members
-  for insert
-  with check (true);
 
 -- UPDATE / DELETE are intentionally NOT granted to anon.
 -- Use the Supabase dashboard (as admin) to moderate entries.

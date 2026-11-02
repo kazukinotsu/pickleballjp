@@ -1,0 +1,11 @@
+# 静的配信しないファイル（リポジトリ内部用）。api/ と公開ページ・JSONは残す。
+.github
+scripts
+state
+out
+db
+docs
+setup.sh
+supabase-schema.sql
+README.md
+config.example.js
